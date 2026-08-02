@@ -1,8 +1,9 @@
-import { Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { NodePgDatabase, drizzle } from 'drizzle-orm/node-postgres/driver';
 import { Pool } from 'pg';
 import * as schema from './schema';
 
+@Injectable()
 export class DatabaseAuthService implements OnModuleDestroy {
   private readonly logger = new Logger(DatabaseAuthService.name);
   private pool: Pool;

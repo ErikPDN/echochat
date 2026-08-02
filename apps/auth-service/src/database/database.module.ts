@@ -6,4 +6,4 @@ import { DatabaseAuthService } from './database.service';
   providers: [DatabaseAuthService],
   exports: [DatabaseAuthService],
 })
-export class DatabaseModule {}
+export class DatabaseAuthModule {}
