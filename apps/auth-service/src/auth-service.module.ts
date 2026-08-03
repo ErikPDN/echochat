@@ -4,6 +4,7 @@ import { AuthServiceService } from './auth-service.service';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseAuthModule } from './database/database.module';
 import { JwtModule } from '@nestjs/jwt';
+import { JwtAuthModule } from '@app/common/auth';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { JwtModule } from '@nestjs/jwt';
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: Number(process.env.JWT_EXPIRATION!) },
     }),
+    JwtAuthModule,
   ],
   controllers: [AuthServiceController],
   providers: [AuthServiceService],

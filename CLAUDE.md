@@ -17,7 +17,8 @@ Projeto individual, propósito de aprendizado prático de sistemas distribuídos
 ## Arquitetura
 
 Monorepo NestJS (modo nativo `nest g app` / `nest g lib`), microserviços comunicando
-via Kafka (eventos) e TCP/Redis (transporte síncrono quando necessário).
+via REST/HTTP (transporte síncrono entre gateway e serviços internos) e Kafka
+(eventos assíncronos).
 
 ```
 Next.js (web) ──HTTP──> api-gateway ──> auth-service (Postgres)
