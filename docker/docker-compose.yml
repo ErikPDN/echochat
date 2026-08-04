@@ -1,0 +1,54 @@
+name: echochat
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: echochat-postgres
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: echochat
+      POSTGRES_PASSWORD: echochat
+      POSTGRES_DB: echochat
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker-db-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U echochat']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: echochat-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    container_name: echochat-mongo
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: echochat
+      MONGO_INITDB_ROOT_PASSWORD: echochat
+      MONGO_INITDB_DATABASE: echochat
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:
+  mongo-data:
