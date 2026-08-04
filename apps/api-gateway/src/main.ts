@@ -28,6 +28,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 3001);
+  console.log(
+    `API Gateway is running on http://localhost:${process.env.PORT ?? 3001}`,
+  );
 }
 bootstrap();

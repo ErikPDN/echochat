@@ -14,5 +14,8 @@ async function bootstrap() {
   );
 
   await app.listen(process.env.PORT ?? 3002);
+  console.log(
+    `Auth Service is running on http://localhost:${process.env.PORT ?? 3002}`,
+  );
 }
 bootstrap();
