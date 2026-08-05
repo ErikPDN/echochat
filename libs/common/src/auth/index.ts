@@ -3,3 +3,4 @@ export * from './jwt.strategy';
 export * from './jwt-auth.guard';
 export * from './jwt-auth.module';
 export * from './auth-request.interface';
+export * from './origin.guard';

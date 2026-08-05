@@ -1,4 +1,9 @@
-import { AuthResponse, LoginDto, SignupDto } from '@app/contracts';
+import {
+  AuthResponse,
+  InternalAuthResponse,
+  LoginDto,
+  SignupDto,
+} from '@app/contracts';
 import { NestErrorResponse } from '@app/contracts/auth/interfaces/nest-error-response.interface';
 import { HttpService } from '@nestjs/axios';
 import {
@@ -20,7 +25,7 @@ export class AuthService {
     private readonly httpService: HttpService,
   ) {}
 
-  async signup(dto: SignupDto): Promise<AuthResponse> {
+  async signup(dto: SignupDto): Promise<InternalAuthResponse> {
     const response = await firstValueFrom(
       this.httpService
         .post(`${this.apiUrl}/auth/signup`, dto)
@@ -29,13 +34,30 @@ export class AuthService {
     return response.data;
   }
 
-  async login(dto: LoginDto): Promise<AuthResponse> {
+  async login(dto: LoginDto): Promise<InternalAuthResponse> {
     const response = await firstValueFrom(
       this.httpService
         .post(`${this.apiUrl}/auth/login`, dto)
         .pipe(this.handleError('Error during login request')),
     );
     return response.data;
+  }
+
+  async refreshToken(refreshToken: string): Promise<InternalAuthResponse> {
+    const response = await firstValueFrom(
+      this.httpService
+        .post(`${this.apiUrl}/auth/refresh`, { refreshToken })
+        .pipe(this.handleError('Error during refresh token request')),
+    );
+    return response.data;
+  }
+
+  async logout(refreshToken: string): Promise<void> {
+    await firstValueFrom(
+      this.httpService
+        .post(`${this.apiUrl}/auth/logout`, { refreshToken })
+        .pipe(this.handleError('Error during logout request')),
+    );
   }
 
   async getProfile(token: string): Promise<AuthResponse['user']> {
