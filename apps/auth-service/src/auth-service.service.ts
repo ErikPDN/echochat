@@ -109,7 +109,12 @@ export class AuthServiceService {
 
   async getProfile(userId: string): Promise<AuthResponse['user']> {
     const [user] = await this.databaseAuthService.db
-      .select()
+      .select({
+        id: users.id,
+        username: users.username,
+        name: users.name,
+        email: users.email,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)

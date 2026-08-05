@@ -75,7 +75,7 @@ export class AuthService {
 
   private handleError<T>(context: string): OperatorFunction<T, T> {
     return catchError((error: AxiosError<NestErrorResponse>) => {
-      this.logger.error(context, error);
+      this.logger.error(`${context}: ${error.message}`, error.stack);
       throw new HttpException(
         error.response?.data ?? 'Internal Server Error',
         error.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,
