@@ -1,18 +1,21 @@
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseChatService } from './database/database.service';
 import {
   AddUserToConversationDto,
+  ConversationMemberResponse,
   ConversationResponse,
   ConversationType,
   CreateConversationDto,
   MemberRole,
 } from '@app/contracts';
-import { eq, inArray } from 'drizzle-orm';
-import { conversations } from './database/schema';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { ConversationMember, conversations } from './database/schema';
 import { conversationMembers } from './database/schema';
 import { AuthClientService } from './auth-client/auth-client.service';
 
@@ -91,17 +94,174 @@ export class ChatServiceService {
       name: result.name,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      members: result.members.map((member) => ({
-        userId: member.userId,
-        role: member.role as MemberRole,
-        joinedAt: member.joinedAt,
-      })),
+      members: result.members.map((member) => this.toMemberResponse(member)),
     };
   }
 
-  async getUserConversations(userId: string): Promise<ConversationResponse[]> {}
+  async getUserConversations(userId: string): Promise<ConversationResponse[]> {
+    const memberships = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.userId, userId),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    if (memberships.length === 0) return [];
+
+    const conversationIds = memberships.map(
+      (membership) => membership.conversationId,
+    );
+
+    const userConversations = await this.databaseChatService.db
+      .select()
+      .from(conversations)
+      .where(inArray(conversations.id, conversationIds));
+
+    const allMembers = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          inArray(conversationMembers.conversationId, conversationIds),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    const membersByConversation = new Map<string, typeof allMembers>();
+    for (const member of allMembers) {
+      const list = membersByConversation.get(member.conversationId) || [];
+      list.push(member);
+      membersByConversation.set(member.conversationId, list);
+    }
+
+    return userConversations.map((conversation) => ({
+      id: conversation.id,
+      type: conversation.type as ConversationType,
+      name: conversation.name,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      members: (membersByConversation.get(conversation.id) || []).map(
+        (member) => this.toMemberResponse(member),
+      ),
+    }));
+  }
 
   async addUserToConversation(
     dto: AddUserToConversationDto,
-  ): Promise<ConversationResponse> {}
+    conversationId: string,
+    requesterId: string,
+  ): Promise<ConversationResponse> {
+    const [existingConversation] = await this.databaseChatService.db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+
+    if (!existingConversation)
+      throw new NotFoundException('Conversation not found');
+
+    const existingUser = await this.authClientService.verifyUsers([dto.userId]);
+
+    if (existingUser.length === 0) {
+      throw new NotFoundException('User not found');
+    }
+
+    const [requesterMembership] = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          eq(conversationMembers.userId, requesterId),
+          isNull(conversationMembers.leftAt),
+        ),
+      )
+      .limit(1);
+
+    if (!requesterMembership) {
+      throw new ForbiddenException(
+        'You are not a member of this conversation or have left it, so you cannot add new members',
+      );
+    }
+
+    if (requesterMembership.role !== MemberRole.ADMIN) {
+      throw new ForbiddenException(
+        'Only admins can add new members to the conversation',
+      );
+    }
+
+    const [existingMember] = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          eq(conversationMembers.userId, dto.userId),
+        ),
+      )
+      .limit(1);
+
+    if (existingMember && !existingMember.leftAt) {
+      throw new ConflictException(
+        'User is already a member of the conversation',
+      );
+    }
+
+    if (existingConversation.type === ConversationType.PRIVATE) {
+      throw new BadRequestException(
+        'Cannot add members to a private conversation',
+      );
+    }
+
+    if (existingMember) {
+      await this.databaseChatService.db
+        .update(conversationMembers)
+        .set({ leftAt: null, joinedAt: new Date(), role: MemberRole.MEMBER })
+        .where(
+          and(
+            eq(conversationMembers.conversationId, conversationId),
+            eq(conversationMembers.userId, dto.userId),
+          ),
+        );
+    } else {
+      await this.databaseChatService.db.insert(conversationMembers).values({
+        conversationId,
+        userId: dto.userId,
+        role: MemberRole.MEMBER,
+      });
+    }
+
+    const members = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    return {
+      id: conversationId,
+      type: existingConversation.type as ConversationType,
+      name: existingConversation.name,
+      createdAt: existingConversation.createdAt,
+      updatedAt: existingConversation.updatedAt,
+      members: members.map((member) => this.toMemberResponse(member)),
+    };
+  }
+
+  private toMemberResponse(
+    member: ConversationMember,
+  ): ConversationMemberResponse {
+    return {
+      userId: member.userId,
+      role: member.role as MemberRole,
+      joinedAt: member.joinedAt,
+      leftAt: member.leftAt ?? undefined,
+    };
+  }
 }
