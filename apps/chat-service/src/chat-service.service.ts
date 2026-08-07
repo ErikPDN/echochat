@@ -34,19 +34,6 @@ export class ChatServiceService {
       (id) => id !== userId,
     );
 
-    const existingMembers =
-      await this.authClientService.verifyUsers(uniqueMemberIds);
-
-    if (existingMembers.length !== uniqueMemberIds.length) {
-      const foundMemberIds = new Set(existingMembers);
-      const notFoundMemberIds = uniqueMemberIds.filter(
-        (id) => !foundMemberIds.has(id),
-      );
-      throw new NotFoundException(
-        `Members not found: ${notFoundMemberIds.join(', ')}`,
-      );
-    }
-
     if (dto.type === ConversationType.PRIVATE && uniqueMemberIds.length !== 1) {
       throw new BadRequestException(
         'Private conversations must have exactly one member',
@@ -58,6 +45,29 @@ export class ChatServiceService {
       (!dto.name || dto.name.trim() === '')
     ) {
       throw new BadRequestException('Group conversations must have a name');
+    }
+
+    const [privateMemberId] = uniqueMemberIds;
+    if (dto.type === ConversationType.PRIVATE && privateMemberId) {
+      const existingPrivateConversation =
+        await this.findExistingPrivateConversation(userId, privateMemberId);
+
+      if (existingPrivateConversation) {
+        return this.getConversationById(existingPrivateConversation.id);
+      }
+    }
+
+    const existingMembers =
+      await this.authClientService.verifyUsers(uniqueMemberIds);
+
+    if (existingMembers.length !== uniqueMemberIds.length) {
+      const foundMemberIds = new Set(existingMembers);
+      const notFoundMemberIds = uniqueMemberIds.filter(
+        (id) => !foundMemberIds.has(id),
+      );
+      throw new NotFoundException(
+        `Members not found: ${notFoundMemberIds.join(', ')}`,
+      );
     }
 
     const result = await this.databaseChatService.db.transaction(async (tx) => {
@@ -254,6 +264,39 @@ export class ChatServiceService {
     };
   }
 
+  async getConversationById(
+    conversationId: string,
+  ): Promise<ConversationResponse> {
+    const [conversation] = await this.databaseChatService.db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    const members = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    return {
+      id: conversation.id,
+      type: conversation.type as ConversationType,
+      name: conversation.name,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      members: members.map((member) => this.toMemberResponse(member)),
+    };
+  }
+
   private toMemberResponse(
     member: ConversationMember,
   ): ConversationMemberResponse {
@@ -263,5 +306,45 @@ export class ChatServiceService {
       joinedAt: member.joinedAt,
       leftAt: member.leftAt ?? undefined,
     };
+  }
+
+  private async findExistingPrivateConversation(
+    userId1: string,
+    userId2: string,
+  ): Promise<{ id: string } | null> {
+    const user1Conversations = await this.databaseChatService.db
+      .select({ conversationId: conversationMembers.conversationId })
+      .from(conversations)
+      .innerJoin(
+        conversationMembers,
+        eq(conversations.id, conversationMembers.conversationId),
+      )
+      .where(
+        and(
+          eq(conversationMembers.userId, userId1),
+          eq(conversations.type, ConversationType.PRIVATE),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    const user1ConversationIds = user1Conversations.map(
+      (conv) => conv.conversationId,
+    );
+
+    if (user1ConversationIds.length === 0) return null;
+
+    const [match] = await this.databaseChatService.db
+      .select({ conversationId: conversationMembers.conversationId })
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.userId, userId2),
+          inArray(conversationMembers.conversationId, user1ConversationIds),
+          isNull(conversationMembers.leftAt),
+        ),
+      )
+      .limit(1);
+
+    return match ? { id: match.conversationId } : null;
   }
 }
