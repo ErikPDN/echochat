@@ -15,6 +15,7 @@ import {
   InternalAuthResponse,
   LoginDto,
   RefreshTokenDto,
+  VerifyUsersDto,
 } from '@app/contracts';
 import { JwtAuthGuard } from '@app/common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '@app/common/auth';
@@ -31,6 +32,11 @@ export class AuthServiceController {
   @Post('login')
   login(@Body() dto: LoginDto): Promise<InternalAuthResponse> {
     return this.authServiceService.login(dto);
+  }
+
+  @Post('users/verify')
+  verifyUsers(@Body() dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+    return this.authServiceService.verifyUsers(dto);
   }
 
   @UseGuards(JwtAuthGuard)

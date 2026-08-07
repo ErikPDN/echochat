@@ -12,9 +12,10 @@ import {
   LoginDto,
   RefreshTokenDto,
   SignupDto,
+  VerifyUsersDto,
 } from '@app/contracts';
 import { refreshTokens, users } from './database/schema';
-import { eq, or } from 'drizzle-orm';
+import { eq, inArray, or } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -105,6 +106,18 @@ export class AuthServiceService {
       accessToken: token,
       refreshToken,
     };
+  }
+
+  async verifyUsers(dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+    return this.databaseAuthService.db
+      .select({
+        id: users.id,
+        username: users.username,
+        name: users.name,
+        email: users.email,
+      })
+      .from(users)
+      .where(inArray(users.id, dto.userIds));
   }
 
   async getProfile(userId: string): Promise<AuthResponse['user']> {
