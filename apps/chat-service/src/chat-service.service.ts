@@ -11,7 +11,8 @@ import {
   ConversationMemberResponse,
   ConversationResponse,
   ConversationType,
-  CreateConversationDto,
+  CreateGroupConversationDto,
+  CreatePrivateConversationDto,
   MemberRole,
 } from '@app/contracts';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
@@ -25,96 +26,6 @@ export class ChatServiceService {
     private readonly databaseChatService: DatabaseChatService,
     private readonly authClientService: AuthClientService,
   ) {}
-
-  async createConversation(
-    dto: CreateConversationDto,
-    userId: string,
-  ): Promise<ConversationResponse> {
-    const uniqueMemberIds = [...new Set(dto.memberIds)].filter(
-      (id) => id !== userId,
-    );
-
-    if (dto.type === ConversationType.PRIVATE && uniqueMemberIds.length !== 1) {
-      throw new BadRequestException(
-        'Private conversations must have exactly one member',
-      );
-    }
-
-    if (
-      dto.type === ConversationType.GROUP &&
-      (!dto.name || dto.name.trim() === '')
-    ) {
-      throw new BadRequestException('Group conversations must have a name');
-    }
-
-    const [privateMemberId] = uniqueMemberIds;
-    if (dto.type === ConversationType.PRIVATE && privateMemberId) {
-      const existingPrivateConversation =
-        await this.findExistingPrivateConversation(userId, privateMemberId);
-
-      if (existingPrivateConversation) {
-        return this.getConversationById(existingPrivateConversation.id);
-      }
-    }
-
-    const existingMembers =
-      await this.authClientService.verifyUsers(uniqueMemberIds);
-
-    if (existingMembers.length !== uniqueMemberIds.length) {
-      const foundMemberIds = new Set(
-        existingMembers.map((member) => member.id),
-      );
-      const notFoundMemberIds = uniqueMemberIds.filter(
-        (id) => !foundMemberIds.has(id),
-      );
-      throw new NotFoundException(
-        `Members not found: ${notFoundMemberIds.join(', ')}`,
-      );
-    }
-
-    const result = await this.databaseChatService.db.transaction(async (tx) => {
-      const [newConversation] = await tx
-        .insert(conversations)
-        .values({
-          type: dto.type,
-          name: dto.name ?? null,
-        })
-        .returning();
-
-      const insertedMembers = await tx
-        .insert(conversationMembers)
-        .values([
-          {
-            conversationId: newConversation.id,
-            userId,
-            role: MemberRole.ADMIN,
-          },
-          ...uniqueMemberIds.map((memberId) => ({
-            conversationId: newConversation.id,
-            userId: memberId,
-            role: MemberRole.MEMBER,
-          })),
-        ])
-        .returning();
-
-      return { ...newConversation, members: insertedMembers };
-    });
-
-    const userById = await this.resolveUserNames(
-      result.members.map((member) => member.userId),
-    );
-
-    return {
-      id: result.id,
-      type: result.type as ConversationType,
-      name: result.name,
-      createdAt: result.createdAt,
-      updatedAt: result.updatedAt,
-      members: result.members.map((member) =>
-        this.buildMemberResponse(member, userById),
-      ),
-    };
-  }
 
   async getUserConversations(userId: string): Promise<ConversationResponse[]> {
     const memberships = await this.databaseChatService.db
@@ -169,6 +80,67 @@ export class ChatServiceService {
         (member) => this.buildMemberResponse(member, usersById),
       ),
     }));
+  }
+
+  async createPrivateConversation(
+    dto: CreatePrivateConversationDto,
+    userId: string,
+  ): Promise<ConversationResponse> {
+    const { memberId } = dto;
+
+    const existingMember = await this.authClientService.verifyUsers([memberId]);
+
+    if (existingMember.length === 0) {
+      throw new NotFoundException('Member not found');
+    }
+
+    const existingPrivateConversation =
+      await this.findExistingPrivateConversation(userId, memberId);
+
+    if (existingPrivateConversation) {
+      return this.getConversationById(existingPrivateConversation.id);
+    }
+
+    return this.insertConversation(
+      ConversationType.PRIVATE,
+      [memberId],
+      userId,
+    );
+  }
+
+  async createGroupConversation(
+    dto: CreateGroupConversationDto,
+    userId: string,
+  ): Promise<ConversationResponse> {
+    const uniqueMemberIds = [...new Set(dto.memberIds)].filter(
+      (id) => id !== userId,
+    );
+
+    if (!dto.name || dto.name.trim() === '') {
+      throw new BadRequestException('Group conversations must have a name');
+    }
+
+    const existingMembers =
+      await this.authClientService.verifyUsers(uniqueMemberIds);
+
+    if (existingMembers.length !== uniqueMemberIds.length) {
+      const foundMemberIds = new Set(
+        existingMembers.map((member) => member.id),
+      );
+      const notFoundMemberIds = uniqueMemberIds.filter(
+        (id) => !foundMemberIds.has(id),
+      );
+      throw new NotFoundException(
+        `Members not found: ${notFoundMemberIds.join(', ')}`,
+      );
+    }
+
+    return this.insertConversation(
+      ConversationType.GROUP,
+      uniqueMemberIds,
+      userId,
+      dto.name,
+    );
   }
 
   async addUserToConversation(
@@ -316,6 +288,59 @@ export class ChatServiceService {
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
       members: members.map((member) =>
+        this.buildMemberResponse(member, userById),
+      ),
+    };
+  }
+
+  private async insertConversation(
+    type: ConversationType,
+    participantIds: string[],
+    creatorId: string,
+    name?: string,
+  ): Promise<ConversationResponse> {
+    const result = await this.databaseChatService.db.transaction(async (tx) => {
+      const [newConversation] = await tx
+        .insert(conversations)
+        .values({
+          type,
+          name: name ?? null,
+        })
+        .returning();
+
+      const insertedMembers = await tx
+        .insert(conversationMembers)
+        .values([
+          {
+            conversationId: newConversation.id,
+            userId: creatorId,
+            role:
+              type === ConversationType.GROUP
+                ? MemberRole.ADMIN
+                : MemberRole.MEMBER,
+          },
+          ...participantIds.map((memberId) => ({
+            conversationId: newConversation.id,
+            userId: memberId,
+            role: MemberRole.MEMBER,
+          })),
+        ])
+        .returning();
+
+      return { ...newConversation, members: insertedMembers };
+    });
+
+    const userById = await this.resolveUserNames(
+      result.members.map((member) => member.userId),
+    );
+
+    return {
+      id: result.id,
+      type: result.type as ConversationType,
+      name: result.name,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      members: result.members.map((member) =>
         this.buildMemberResponse(member, userById),
       ),
     };

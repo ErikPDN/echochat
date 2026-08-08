@@ -11,9 +11,12 @@ import { AxiosError } from 'axios';
 import { catchError } from 'rxjs/internal/operators/catchError';
 import { HttpService } from '@nestjs/axios';
 import { ConversationResponse } from '@app/contracts/chat/interfaces/conversation-response.interface';
-import { CreateConversationDto } from '@app/contracts/chat/dto/create-conversation.dto';
 import { firstValueFrom } from 'rxjs';
-import { AddUserToConversationDto } from '@app/contracts';
+import {
+  AddUserToConversationDto,
+  CreatePrivateConversationDto,
+  CreateGroupConversationDto,
+} from '@app/contracts';
 
 @Injectable()
 export class ChatService {
@@ -24,23 +27,6 @@ export class ChatService {
     private readonly httpService: HttpService,
   ) {}
 
-  async createConversation(
-    dto: CreateConversationDto,
-    token: string,
-  ): Promise<ConversationResponse> {
-    const response = await firstValueFrom(
-      this.httpService
-        .post(`${this.apiUrl}/conversations`, dto, {
-          headers: {
-            Authorization: token,
-          },
-        })
-        .pipe(this.handleError('Error during create conversation request')),
-    );
-
-    return response.data;
-  }
-
   async getUserConversations(token: string): Promise<ConversationResponse[]> {
     const response = await firstValueFrom(
       this.httpService
@@ -50,6 +36,44 @@ export class ChatService {
           },
         })
         .pipe(this.handleError('Error during get user conversations request')),
+    );
+
+    return response.data;
+  }
+
+  async createPrivateConversation(
+    dto: CreatePrivateConversationDto,
+    token: string,
+  ): Promise<ConversationResponse> {
+    const response = await firstValueFrom(
+      this.httpService
+        .post(`${this.apiUrl}/conversations/private`, dto, {
+          headers: {
+            Authorization: token,
+          },
+        })
+        .pipe(
+          this.handleError('Error during create private conversation request'),
+        ),
+    );
+
+    return response.data;
+  }
+
+  async createGroupConversation(
+    dto: CreateGroupConversationDto,
+    token: string,
+  ): Promise<ConversationResponse> {
+    const response = await firstValueFrom(
+      this.httpService
+        .post(`${this.apiUrl}/conversations/group`, dto, {
+          headers: {
+            Authorization: token,
+          },
+        })
+        .pipe(
+          this.handleError('Error during create group conversation request'),
+        ),
     );
 
     return response.data;

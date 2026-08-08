@@ -2,21 +2,12 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
-  IsEnum,
   IsString,
   IsUUID,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
-import { ConversationType } from '../enums/conversation-type.enum';
 
-export class CreateConversationDto {
-  @IsEnum(ConversationType, {
-    message: 'Type must be either "private" or "group"',
-  })
-  type!: ConversationType;
-
-  @ValidateIf((dto) => dto.type === ConversationType.GROUP)
+export class CreateGroupConversationDto {
   @IsString({ message: 'Name must be a string' })
   @MinLength(1, { message: 'Name must not be empty' })
   name?: string;

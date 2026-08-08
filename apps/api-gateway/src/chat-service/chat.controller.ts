@@ -1,6 +1,5 @@
 import { JwtAuthGuard } from '@app/common/auth/jwt-auth.guard';
 import { AddUserToConversationDto } from '@app/contracts/chat/dto/add-user-to-conversation.dto';
-import { CreateConversationDto } from '@app/contracts/chat/dto/create-conversation.dto';
 import {
   Body,
   Controller,
@@ -13,19 +12,14 @@ import {
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { ConversationResponse } from '@app/contracts/chat/interfaces/conversation-response.interface';
+import {
+  CreateGroupConversationDto,
+  CreatePrivateConversationDto,
+} from '@app/contracts';
 
 @Controller('conversations')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
-
-  @UseGuards(JwtAuthGuard)
-  @Post()
-  createConversation(
-    @Body() dto: CreateConversationDto,
-    @Headers('authorization') token: string,
-  ): Promise<ConversationResponse> {
-    return this.chatService.createConversation(dto, token);
-  }
 
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -33,6 +27,24 @@ export class ChatController {
     @Headers('authorization') token: string,
   ): Promise<ConversationResponse[]> {
     return this.chatService.getUserConversations(token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('private')
+  createPrivateConversation(
+    @Body() dto: CreatePrivateConversationDto,
+    @Headers('authorization') token: string,
+  ): Promise<ConversationResponse> {
+    return this.chatService.createPrivateConversation(dto, token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('group')
+  createGroupConversation(
+    @Body() dto: CreateGroupConversationDto,
+    @Headers('authorization') token: string,
+  ): Promise<ConversationResponse> {
+    return this.chatService.createGroupConversation(dto, token);
   }
 
   @UseGuards(JwtAuthGuard)
