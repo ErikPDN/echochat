@@ -1,3 +1,4 @@
+import { AuthResponse } from '@app/contracts';
 import { HttpService } from '@nestjs/axios';
 import {
   HttpException,
@@ -20,7 +21,7 @@ export class AuthClientService {
     private readonly httpService: HttpService,
   ) {}
 
-  async verifyUsers(userIds: string[]): Promise<string[]> {
+  async verifyUsers(userIds: string[]): Promise<AuthResponse['user'][]> {
     const response = await firstValueFrom(
       this.httpService
         .post(`${this.authServiceUrl}/auth/users/verify`, {
@@ -29,7 +30,7 @@ export class AuthClientService {
         .pipe(this.handleError('Error during verify users request')),
     );
 
-    return response.data.map((user: { id: string }) => user.id);
+    return response.data;
   }
 
   private handleError<T>(context: String): OperatorFunction<T, T> {

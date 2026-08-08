@@ -3,6 +3,8 @@ import { MemberRole } from '../enums/member-role.enum';
 
 export interface ConversationMemberResponse {
   userId: string;
+  username: string;
+  name: string;
   role: MemberRole;
   joinedAt: Date;
   leftAt?: Date;

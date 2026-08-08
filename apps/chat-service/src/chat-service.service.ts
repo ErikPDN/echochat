@@ -61,7 +61,9 @@ export class ChatServiceService {
       await this.authClientService.verifyUsers(uniqueMemberIds);
 
     if (existingMembers.length !== uniqueMemberIds.length) {
-      const foundMemberIds = new Set(existingMembers);
+      const foundMemberIds = new Set(
+        existingMembers.map((member) => member.id),
+      );
       const notFoundMemberIds = uniqueMemberIds.filter(
         (id) => !foundMemberIds.has(id),
       );
@@ -98,13 +100,19 @@ export class ChatServiceService {
       return { ...newConversation, members: insertedMembers };
     });
 
+    const userById = await this.resolveUserNames(
+      result.members.map((member) => member.userId),
+    );
+
     return {
       id: result.id,
       type: result.type as ConversationType,
       name: result.name,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      members: result.members.map((member) => this.toMemberResponse(member)),
+      members: result.members.map((member) =>
+        this.buildMemberResponse(member, userById),
+      ),
     };
   }
 
@@ -147,6 +155,10 @@ export class ChatServiceService {
       membersByConversation.set(member.conversationId, list);
     }
 
+    const usersById = await this.resolveUserNames(
+      allMembers.map((member) => member.userId),
+    );
+
     return userConversations.map((conversation) => ({
       id: conversation.id,
       type: conversation.type as ConversationType,
@@ -154,7 +166,7 @@ export class ChatServiceService {
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
       members: (membersByConversation.get(conversation.id) || []).map(
-        (member) => this.toMemberResponse(member),
+        (member) => this.buildMemberResponse(member, usersById),
       ),
     }));
   }
@@ -254,13 +266,19 @@ export class ChatServiceService {
         ),
       );
 
+    const userById = await this.resolveUserNames(
+      members.map((member) => member.userId),
+    );
+
     return {
       id: conversationId,
       type: existingConversation.type as ConversationType,
       name: existingConversation.name,
       createdAt: existingConversation.createdAt,
       updatedAt: existingConversation.updatedAt,
-      members: members.map((member) => this.toMemberResponse(member)),
+      members: members.map((member) =>
+        this.buildMemberResponse(member, userById),
+      ),
     };
   }
 
@@ -287,21 +305,40 @@ export class ChatServiceService {
         ),
       );
 
+    const userById = await this.resolveUserNames(
+      members.map((member) => member.userId),
+    );
+
     return {
       id: conversation.id,
       type: conversation.type as ConversationType,
       name: conversation.name,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
-      members: members.map((member) => this.toMemberResponse(member)),
+      members: members.map((member) =>
+        this.buildMemberResponse(member, userById),
+      ),
     };
   }
 
-  private toMemberResponse(
+  private async resolveUserNames(
+    userIds: string[],
+  ): Promise<Map<string, { username: string; name: string }>> {
+    if (userIds.length === 0) return new Map();
+
+    const users = await this.authClientService.verifyUsers(userIds);
+    return new Map(users.map((user) => [user.id, user]));
+  }
+
+  private buildMemberResponse(
     member: ConversationMember,
+    userById: Map<string, { username: string; name: string }>,
   ): ConversationMemberResponse {
+    const user = userById.get(member.userId);
     return {
       userId: member.userId,
+      username: user?.username ?? 'Unknown',
+      name: user?.name ?? 'Unknown',
       role: member.role as MemberRole,
       joinedAt: member.joinedAt,
       leftAt: member.leftAt ?? undefined,
