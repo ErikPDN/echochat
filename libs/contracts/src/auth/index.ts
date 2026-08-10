@@ -5,3 +5,4 @@ export * from './dto/verify-users.dto';
 export * from './interfaces/internal-auth-response';
 export * from './interfaces/nest-error-response.interface';
 export * from './interfaces/auth-response.interface';
+export * from './interfaces/public-user-response.interface';

@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -14,6 +15,7 @@ import { SignupDto } from '@app/contracts/auth/dto/signup.dto';
 import {
   InternalAuthResponse,
   LoginDto,
+  PublicUserResponse,
   RefreshTokenDto,
   VerifyUsersDto,
 } from '@app/contracts';
@@ -54,5 +56,13 @@ export class AuthServiceController {
   @HttpCode(HttpStatus.NO_CONTENT)
   logout(@Body() dto: RefreshTokenDto): Promise<void> {
     return this.authServiceService.logout(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('users/username/:username')
+  findUserByUsername(
+    @Param('username') username: string,
+  ): Promise<PublicUserResponse> {
+    return this.authServiceService.findUserByUsername(username);
   }
 }

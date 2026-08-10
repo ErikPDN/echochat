@@ -10,6 +10,7 @@ import {
   AuthResponse,
   InternalAuthResponse,
   LoginDto,
+  PublicUserResponse,
   RefreshTokenDto,
   SignupDto,
   VerifyUsersDto,
@@ -227,6 +228,26 @@ export class AuthServiceService {
       .update(refreshTokens)
       .set({ revokedAt: new Date() })
       .where(eq(refreshTokens.familyId, existingToken.familyId));
+  }
+
+  async findUserByUsername(username: string): Promise<PublicUserResponse> {
+    const [user] = await this.databaseAuthService.db
+      .select({
+        id: users.id,
+        username: users.username,
+        name: users.name,
+      })
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
+    if (!user) throw new NotFoundException('User not found');
+
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+    };
   }
 
   private hashToken(token: string): string {

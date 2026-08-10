@@ -33,3 +33,19 @@ O api-gateway já tem Swagger configurado (`DocumentBuilder`/`SwaggerModule` no 
 **Por que foi adiado**: converter pra classes com `@ApiProperty` é mecânico, mas não vale a pena antes da superfície da API do chat-service parar de mudar.
 
 **Quando revisitar**: quando as rotas de `chat-service` estabilizarem.
+
+## 5. Conversa privada fica visível pro outro usuário antes da primeira mensagem ser enviada
+
+`createPrivateConversation` insere os dois usuários em `conversation_members` na hora da criação, e `getUserConversations` lista qualquer conversa onde o usuário é membro ativo — então a conversa aparece na lista de quem foi convidado imediatamente, mesmo que quem criou nunca tenha mandado mensagem nenhuma. WhatsApp/Signal/Telegram não fazem isso: a conversa só "nasce" pro outro lado no envio da primeira mensagem, nunca na criação/abertura.
+
+**Por que foi adiado**: a correção depende de saber "essa conversa já recebeu ao menos uma mensagem", que é informação do `message-service` — hoje ainda é só o scaffold do `nest g app`, sem schema nem endpoint nenhum. Não dá pra resolver direito antes dele existir.
+
+**Quando revisitar**: quando `message-service` for construído (ainda fase 1, próximo passo depois do chat-service). A visibilidade por usuário provavelmente vira uma junção com "existe mensagem nessa conversa", ou um flag por membro tipo `visibleAt`.
+
+## 6. `lastMessage`/preview no `ConversationResponse` — planejado como `null` por enquanto, mas pode virar impossível sob E2E
+
+Plano combinado: `chat-service` consumiria o evento `chat.messages.persisted` (Kafka, fase 3) e preencheria um resumo da última mensagem em `conversations`, pra listagem estilo WhatsApp. Isso funciona enquanto as mensagens trafegam em texto plano.
+
+**Por que isso pode mudar**: se a criptografia E2E (cogitada como funcionalidade futura) for implementada, o servidor nunca vê o conteúdo da mensagem em texto plano — só blobs cifrados. Nesse cenário o `chat-service` não tem como gerar um preview, porque literalmente não consegue ler o conteúdo. Deixaria de ser "ainda não implementado" e viraria uma limitação permanente do design — o preview teria que ser resolvido inteiramente no client, que decifra localmente.
+
+**Quando revisitar**: ao decidir se E2E entra no roadmap de verdade. Se entrar, este item vira decisão arquitetural definitiva (preview só client-side), não mais um TODO de implementação futura.
