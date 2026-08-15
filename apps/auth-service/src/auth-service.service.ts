@@ -16,7 +16,7 @@ import {
   VerifyUsersDto,
 } from '@app/contracts';
 import { refreshTokens, users } from './database/schema';
-import { eq, inArray, or } from 'drizzle-orm';
+import { eq, inArray, ne, or, and } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -230,7 +230,10 @@ export class AuthServiceService {
       .where(eq(refreshTokens.familyId, existingToken.familyId));
   }
 
-  async findUserByUsername(username: string): Promise<PublicUserResponse> {
+  async findUserByUsername(
+    username: string,
+    currentUserId: string,
+  ): Promise<PublicUserResponse> {
     const [user] = await this.databaseAuthService.db
       .select({
         id: users.id,
@@ -238,7 +241,7 @@ export class AuthServiceService {
         name: users.name,
       })
       .from(users)
-      .where(eq(users.username, username))
+      .where(and(eq(users.username, username), ne(users.id, currentUserId)))
       .limit(1);
 
     if (!user) throw new NotFoundException('User not found');

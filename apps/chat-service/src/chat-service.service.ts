@@ -66,9 +66,9 @@ export class ChatServiceService {
       membersByConversation.set(member.conversationId, list);
     }
 
-    const usersById = await this.resolveUserNames(
-      allMembers.map((member) => member.userId),
-    );
+    const usersById = await this.resolveUserNames([
+      ...new Set(allMembers.map((member) => member.userId)),
+    ]);
 
     return userConversations.map((conversation) => ({
       id: conversation.id,

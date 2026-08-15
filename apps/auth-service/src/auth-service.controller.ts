@@ -62,7 +62,11 @@ export class AuthServiceController {
   @Get('users/username/:username')
   findUserByUsername(
     @Param('username') username: string,
+    @Req() req: AuthenticatedRequest,
   ): Promise<PublicUserResponse> {
-    return this.authServiceService.findUserByUsername(username);
+    return this.authServiceService.findUserByUsername(
+      username,
+      req.user.userId,
+    );
   }
 }
