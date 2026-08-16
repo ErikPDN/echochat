@@ -9,6 +9,7 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  Param,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -20,6 +21,7 @@ import {
   REFRESH_TOKEN_COOKIE,
   RefreshTokenCookieGuard,
 } from '@app/common/auth/refresh-token-cookie.guard';
+import { PublicUserResponse } from '@app/contracts/auth/interfaces/public-user-response.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -77,6 +79,15 @@ export class AuthController {
     @Headers('authorization') token: string,
   ): Promise<AuthResponse['user']> {
     return this.authService.getProfile(token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('users/username/:username')
+  findUserByUsername(
+    @Param('username') username: string,
+    @Headers('authorization') token: string,
+  ): Promise<PublicUserResponse> {
+    return this.authService.findUserByUsername(username, token);
   }
 
   private setRefreshCookie(res: Response, refreshToken: string) {

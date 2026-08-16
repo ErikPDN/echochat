@@ -19,7 +19,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./apps/api-gateway/test/jest-e2e.json",
     "db:generate:auth": "drizzle-kit generate --config apps/auth-service/drizzle.config.ts",
-    "db:migrate:auth": "drizzle-kit migrate --config apps/auth-service/drizzle.config.ts"
+    "db:generate:chat": "drizzle-kit generate --config apps/chat-service/drizzle.config.ts",
+    "db:migrate:auth": "drizzle-kit migrate --config apps/auth-service/drizzle.config.ts",
+    "db:migrate:chat": "drizzle-kit migrate --config apps/chat-service/drizzle.config.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

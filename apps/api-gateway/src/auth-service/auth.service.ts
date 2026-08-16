@@ -2,6 +2,7 @@ import {
   AuthResponse,
   InternalAuthResponse,
   LoginDto,
+  PublicUserResponse,
   SignupDto,
 } from '@app/contracts';
 import { NestErrorResponse } from '@app/contracts/auth/interfaces/nest-error-response.interface';
@@ -69,6 +70,22 @@ export class AuthService {
           },
         })
         .pipe(this.handleError('Error during getProfile request')),
+    );
+    return response.data;
+  }
+
+  async findUserByUsername(
+    username: string,
+    token: string,
+  ): Promise<PublicUserResponse> {
+    const response = await firstValueFrom(
+      this.httpService
+        .get(`${this.apiUrl}/auth/users/username/${username}`, {
+          headers: {
+            Authorization: token,
+          },
+        })
+        .pipe(this.handleError('Error during findUserByUsername request')),
     );
     return response.data;
   }

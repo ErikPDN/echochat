@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -14,7 +15,9 @@ import { SignupDto } from '@app/contracts/auth/dto/signup.dto';
 import {
   InternalAuthResponse,
   LoginDto,
+  PublicUserResponse,
   RefreshTokenDto,
+  VerifyUsersDto,
 } from '@app/contracts';
 import { JwtAuthGuard } from '@app/common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '@app/common/auth';
@@ -33,6 +36,11 @@ export class AuthServiceController {
     return this.authServiceService.login(dto);
   }
 
+  @Post('users/verify')
+  verifyUsers(@Body() dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+    return this.authServiceService.verifyUsers(dto);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getProfile(@Req() req: AuthenticatedRequest): Promise<AuthResponse['user']> {
@@ -48,5 +56,17 @@ export class AuthServiceController {
   @HttpCode(HttpStatus.NO_CONTENT)
   logout(@Body() dto: RefreshTokenDto): Promise<void> {
     return this.authServiceService.logout(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('users/username/:username')
+  findUserByUsername(
+    @Param('username') username: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<PublicUserResponse> {
+    return this.authServiceService.findUserByUsername(
+      username,
+      req.user.userId,
+    );
   }
 }

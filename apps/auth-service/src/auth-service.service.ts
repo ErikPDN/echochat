@@ -10,11 +10,13 @@ import {
   AuthResponse,
   InternalAuthResponse,
   LoginDto,
+  PublicUserResponse,
   RefreshTokenDto,
   SignupDto,
+  VerifyUsersDto,
 } from '@app/contracts';
 import { refreshTokens, users } from './database/schema';
-import { eq, or } from 'drizzle-orm';
+import { eq, inArray, ne, or, and } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -105,6 +107,18 @@ export class AuthServiceService {
       accessToken: token,
       refreshToken,
     };
+  }
+
+  async verifyUsers(dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+    return this.databaseAuthService.db
+      .select({
+        id: users.id,
+        username: users.username,
+        name: users.name,
+        email: users.email,
+      })
+      .from(users)
+      .where(inArray(users.id, dto.userIds));
   }
 
   async getProfile(userId: string): Promise<AuthResponse['user']> {
@@ -214,6 +228,29 @@ export class AuthServiceService {
       .update(refreshTokens)
       .set({ revokedAt: new Date() })
       .where(eq(refreshTokens.familyId, existingToken.familyId));
+  }
+
+  async findUserByUsername(
+    username: string,
+    currentUserId: string,
+  ): Promise<PublicUserResponse> {
+    const [user] = await this.databaseAuthService.db
+      .select({
+        id: users.id,
+        username: users.username,
+        name: users.name,
+      })
+      .from(users)
+      .where(and(eq(users.username, username), ne(users.id, currentUserId)))
+      .limit(1);
+
+    if (!user) throw new NotFoundException('User not found');
+
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+    };
   }
 
   private hashToken(token: string): string {
