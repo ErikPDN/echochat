@@ -85,7 +85,7 @@ export class AuthService {
             Authorization: token,
           },
         })
-        .pipe(this.handleError('Error during findUserById request')),
+        .pipe(this.handleError('Error during findUserByUsername request')),
     );
     return response.data;
   }

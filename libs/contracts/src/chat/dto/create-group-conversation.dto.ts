@@ -10,10 +10,9 @@ import {
 export class CreateGroupConversationDto {
   @IsString({ message: 'Group name must be a string' })
   @MinLength(1, { message: 'Group name must not be empty' })
-  groupName?: string;
+  groupName!: string;
 
   @IsArray({ message: 'Member IDs must be an array' })
-  @ArrayMinSize(1, { message: 'At least one member ID is required' })
   @ArrayUnique({ message: 'Member IDs must be unique' })
   @IsUUID('4', {
     each: true,

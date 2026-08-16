@@ -8,9 +8,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { AxiosError } from 'axios';
-import { firstValueFrom } from 'rxjs/internal/firstValueFrom';
-import { catchError } from 'rxjs/internal/operators/catchError';
-import { OperatorFunction } from 'rxjs/internal/types';
+import { firstValueFrom } from 'rxjs';
+import { catchError } from 'rxjs';
+import { OperatorFunction } from 'rxjs';
 
 @Injectable()
 export class AuthClientService {

@@ -1,5 +1,5 @@
 import { NestErrorResponse } from '@app/contracts/auth/interfaces/nest-error-response.interface';
-import { OperatorFunction } from 'rxjs/internal/types';
+import { OperatorFunction } from 'rxjs';
 import {
   HttpException,
   HttpStatus,
@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { AxiosError } from 'axios';
-import { catchError } from 'rxjs/internal/operators/catchError';
+import { catchError } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { ConversationResponse } from '@app/contracts/chat/interfaces/conversation-response.interface';
 import { firstValueFrom } from 'rxjs';

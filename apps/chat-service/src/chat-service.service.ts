@@ -88,6 +88,12 @@ export class ChatServiceService {
   ): Promise<ConversationResponse> {
     const { memberId } = dto;
 
+    if (memberId === userId) {
+      throw new BadRequestException(
+        'Cannot create a private conversation with yourself',
+      );
+    }
+
     const existingMember = await this.authClientService.verifyUsers([memberId]);
 
     if (existingMember.length === 0) {
@@ -221,11 +227,20 @@ export class ChatServiceService {
           ),
         );
     } else {
-      await this.databaseChatService.db.insert(conversationMembers).values({
-        conversationId,
-        userId: dto.userId,
-        role: MemberRole.MEMBER,
-      });
+      try {
+        await this.databaseChatService.db.insert(conversationMembers).values({
+          conversationId,
+          userId: dto.userId,
+          role: MemberRole.MEMBER,
+        });
+      } catch (error) {
+        if (this.isUniqueViolation(error)) {
+          throw new ConflictException(
+            'User is already a member of the conversation',
+          );
+        }
+        throw error;
+      }
     }
 
     const members = await this.databaseChatService.db
@@ -408,5 +423,14 @@ export class ChatServiceService {
       .limit(1);
 
     return match ? { id: match.conversationId } : null;
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code: string }).code === '23505'
+    );
   }
 }
