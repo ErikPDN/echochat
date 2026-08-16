@@ -116,7 +116,7 @@ export class ChatServiceService {
       (id) => id !== userId,
     );
 
-    if (!dto.name || dto.name.trim() === '') {
+    if (!dto.groupName || dto.groupName.trim() === '') {
       throw new BadRequestException('Group conversations must have a name');
     }
 
@@ -139,7 +139,7 @@ export class ChatServiceService {
       ConversationType.GROUP,
       uniqueMemberIds,
       userId,
-      dto.name,
+      dto.groupName,
     );
   }
 

@@ -8,9 +8,9 @@ import {
 } from 'class-validator';
 
 export class CreateGroupConversationDto {
-  @IsString({ message: 'Name must be a string' })
-  @MinLength(1, { message: 'Name must not be empty' })
-  name?: string;
+  @IsString({ message: 'Group name must be a string' })
+  @MinLength(1, { message: 'Group name must not be empty' })
+  groupName?: string;
 
   @IsArray({ message: 'Member IDs must be an array' })
   @ArrayMinSize(1, { message: 'At least one member ID is required' })
