@@ -7,7 +7,9 @@ import {
   Param,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthServiceService } from './auth-service.service';
 import { AuthResponse } from '@app/contracts/auth/interfaces/auth-response.interface';
@@ -21,6 +23,8 @@ import {
 } from '@app/contracts';
 import { JwtAuthGuard } from '@app/common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '@app/common/auth';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
 
 @Controller('auth')
 export class AuthServiceController {
@@ -68,5 +72,15 @@ export class AuthServiceController {
       username,
       req.user.userId,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('users/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  updateAvatar(
+    @Req() req: AuthenticatedRequest,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<AvatarResponse> {
+    return this.authServiceService.updateAvatar(req.user.userId, file);
   }
 }

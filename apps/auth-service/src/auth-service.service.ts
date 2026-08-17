@@ -19,12 +19,15 @@ import { refreshTokens, users } from './database/schema';
 import { eq, inArray, ne, or, and } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { StorageService } from '@app/common';
+import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
 
 @Injectable()
 export class AuthServiceService {
   constructor(
     private readonly databaseAuthService: DatabaseAuthService,
     private readonly jwtService: JwtService,
+    private readonly storageService: StorageService,
   ) {}
 
   async signup(dto: SignupDto): Promise<InternalAuthResponse> {
@@ -251,6 +254,26 @@ export class AuthServiceService {
       username: user.username,
       name: user.name,
     };
+  }
+
+  async updateAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<AvatarResponse> {
+    const key = `${userId}.${file.originalname.split('.').pop()}`;
+    await this.storageService.upload(
+      'avatars',
+      key,
+      file.buffer,
+      file.mimetype,
+    );
+
+    await this.databaseAuthService.db
+      .update(users)
+      .set({ avatarKey: key })
+      .where(eq(users.id, userId));
+
+    return { avatarKey: key };
   }
 
   private hashToken(token: string): string {

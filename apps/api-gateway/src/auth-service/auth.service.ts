@@ -5,6 +5,7 @@ import {
   PublicUserResponse,
   SignupDto,
 } from '@app/contracts';
+import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
 import { NestErrorResponse } from '@app/contracts/auth/interfaces/nest-error-response.interface';
 import { HttpService } from '@nestjs/axios';
 import {
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { AxiosError } from 'axios';
 import { catchError, firstValueFrom, OperatorFunction } from 'rxjs';
+import FormData from 'form-data';
 
 @Injectable()
 export class AuthService {
@@ -86,6 +88,29 @@ export class AuthService {
           },
         })
         .pipe(this.handleError('Error during findUserByUsername request')),
+    );
+    return response.data;
+  }
+
+  async uploadAvatar(
+    token: string,
+    file: Express.Multer.File,
+  ): Promise<AvatarResponse> {
+    const formData = new FormData();
+    formData.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    const response = await firstValueFrom(
+      this.httpService
+        .post(`${this.apiUrl}/auth/users/avatar`, formData, {
+          headers: {
+            Authorization: token,
+            ...formData.getHeaders(),
+          },
+        })
+        .pipe(this.handleError('Error during uploadAvatar request')),
     );
     return response.data;
   }

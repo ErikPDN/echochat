@@ -24,6 +24,7 @@
     "db:migrate:chat": "drizzle-kit migrate --config apps/chat-service/drizzle.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1111.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
@@ -38,6 +39,7 @@
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "^0.45.2",
+    "form-data": "^4.0.6",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",
@@ -55,6 +57,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^24.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.20.2",

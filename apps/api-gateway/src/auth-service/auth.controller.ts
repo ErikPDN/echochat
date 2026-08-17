@@ -10,6 +10,11 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -22,6 +27,8 @@ import {
   RefreshTokenCookieGuard,
 } from '@app/common/auth/refresh-token-cookie.guard';
 import { PublicUserResponse } from '@app/contracts/auth/interfaces/public-user-response.interface';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -88,6 +95,24 @@ export class AuthController {
     @Headers('authorization') token: string,
   ): Promise<PublicUserResponse> {
     return this.authService.findUserByUsername(username, token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('users/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadAvatar(
+    @Headers('authorization') token: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 30 * 1024 * 1024 }), // 30MB
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ): Promise<AvatarResponse> {
+    return this.authService.uploadAvatar(token, file);
   }
 
   private setRefreshCookie(res: Response, refreshToken: string) {
