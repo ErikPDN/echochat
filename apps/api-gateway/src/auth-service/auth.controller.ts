@@ -15,6 +15,7 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  Delete,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -98,7 +99,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('users/avatar')
+  @Post('me/avatar')
   @UseInterceptors(FileInterceptor('file'))
   uploadAvatar(
     @Headers('authorization') token: string,
@@ -113,6 +114,12 @@ export class AuthController {
     file: Express.Multer.File,
   ): Promise<AvatarResponse> {
     return this.authService.uploadAvatar(token, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/avatar')
+  deleteAvatar(@Headers('authorization') token: string): Promise<void> {
+    return this.authService.deleteAvatar(token);
   }
 
   private setRefreshCookie(res: Response, refreshToken: string) {

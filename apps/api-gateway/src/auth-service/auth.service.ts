@@ -104,7 +104,7 @@ export class AuthService {
 
     const response = await firstValueFrom(
       this.httpService
-        .post(`${this.apiUrl}/auth/users/avatar`, formData, {
+        .post(`${this.apiUrl}/auth/me/avatar`, formData, {
           headers: {
             Authorization: token,
             ...formData.getHeaders(),
@@ -113,6 +113,18 @@ export class AuthService {
         .pipe(this.handleError('Error during uploadAvatar request')),
     );
     return response.data;
+  }
+
+  async deleteAvatar(token: string): Promise<void> {
+    await firstValueFrom(
+      this.httpService
+        .delete(`${this.apiUrl}/auth/me/avatar`, {
+          headers: {
+            Authorization: token,
+          },
+        })
+        .pipe(this.handleError('Error during deleteAvatar request')),
+    );
   }
 
   private handleError<T>(context: string): OperatorFunction<T, T> {

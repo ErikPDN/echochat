@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -75,12 +76,18 @@ export class AuthServiceController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('users/avatar')
+  @Post('me/avatar')
   @UseInterceptors(FileInterceptor('file'))
   updateAvatar(
     @Req() req: AuthenticatedRequest,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<AvatarResponse> {
     return this.authServiceService.updateAvatar(req.user.userId, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/avatar')
+  deleteAvatar(@Req() req: AuthenticatedRequest): Promise<void> {
+    return this.authServiceService.deleteAvatar(req.user.userId);
   }
 }

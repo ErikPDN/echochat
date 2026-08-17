@@ -276,6 +276,23 @@ export class AuthServiceService {
     return { avatarKey: key };
   }
 
+  async deleteAvatar(userId: string): Promise<void> {
+    const [user] = await this.databaseAuthService.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user || !user.avatarKey) return;
+
+    await this.storageService.delete('avatars', user.avatarKey);
+
+    await this.databaseAuthService.db
+      .update(users)
+      .set({ avatarKey: null })
+      .where(eq(users.id, userId));
+  }
+
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
