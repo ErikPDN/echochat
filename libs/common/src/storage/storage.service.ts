@@ -32,12 +32,18 @@ export class StorageService {
         ContentType: mimetype,
       }),
     );
-    return { avatarKey: key };
+
+    const avatarUrl = this.getSignedUrl(bucket, key);
+    return { avatarUrl };
   }
 
   async delete(bucket: string, key: string): Promise<void> {
     await this.s3Client.send(
       new DeleteObjectCommand({ Bucket: bucket, Key: key }),
     );
+  }
+
+  getSignedUrl(bucket: string, key: string): string {
+    return `${process.env.MINIO_ENDPOINT}/${bucket}/${key}`;
   }
 }

@@ -8,6 +8,7 @@ export interface ConversationMemberResponse {
   role: MemberRole;
   joinedAt: Date;
   leftAt?: Date;
+  avatarKey?: string | null;
 }
 
 export interface ConversationResponse {

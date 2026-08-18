@@ -15,7 +15,7 @@ import {
   SignupDto,
   VerifyUsersDto,
 } from '@app/contracts';
-import { refreshTokens, users } from './database/schema';
+import { refreshTokens, User, users } from './database/schema';
 import { eq, inArray, ne, or, and } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -63,12 +63,7 @@ export class AuthServiceService {
     const refreshToken = await this.issueRefreshToken(newUser.id);
 
     return {
-      user: {
-        id: newUser.id,
-        username: newUser.username,
-        name: newUser.name,
-        email: newUser.email,
-      },
+      user: this.toUserResponse(newUser),
       accessToken: token,
       refreshToken,
     };
@@ -101,12 +96,7 @@ export class AuthServiceService {
     const refreshToken = await this.issueRefreshToken(user.id);
 
     return {
-      user: {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        email: user.email,
-      },
+      user: this.toUserResponse(user),
       accessToken: token,
       refreshToken,
     };
@@ -126,12 +116,7 @@ export class AuthServiceService {
 
   async getProfile(userId: string): Promise<AuthResponse['user']> {
     const [user] = await this.databaseAuthService.db
-      .select({
-        id: users.id,
-        username: users.username,
-        name: users.name,
-        email: users.email,
-      })
+      .select()
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)
@@ -139,7 +124,8 @@ export class AuthServiceService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    return user;
+    const userResponse = this.toUserResponse(user);
+    return userResponse;
   }
 
   async refreshToken(dto: RefreshTokenDto): Promise<InternalAuthResponse> {
@@ -207,12 +193,7 @@ export class AuthServiceService {
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        email: user.email,
-      },
+      user: this.toUserResponse(user),
     };
   }
 
@@ -261,7 +242,7 @@ export class AuthServiceService {
     file: Express.Multer.File,
   ): Promise<AvatarResponse> {
     const key = `${userId}.${file.originalname.split('.').pop()}`;
-    await this.storageService.upload(
+    const { avatarUrl } = await this.storageService.upload(
       'avatars',
       key,
       file.buffer,
@@ -273,7 +254,7 @@ export class AuthServiceService {
       .set({ avatarKey: key })
       .where(eq(users.id, userId));
 
-    return { avatarKey: key };
+    return { avatarUrl };
   }
 
   async deleteAvatar(userId: string): Promise<void> {
@@ -315,5 +296,17 @@ export class AuthServiceService {
     });
 
     return rawToken;
+  }
+
+  private toUserResponse(user: User): AuthResponse['user'] {
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarKey
+        ? this.storageService.getSignedUrl('avatars', user.avatarKey)
+        : null,
+    };
   }
 }
