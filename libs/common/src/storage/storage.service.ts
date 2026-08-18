@@ -33,7 +33,7 @@ export class StorageService {
       }),
     );
 
-    const avatarUrl = this.getSignedUrl(bucket, key);
+    const avatarUrl = this.getPublicUrl(bucket, key);
     return { avatarUrl };
   }
 
@@ -43,7 +43,7 @@ export class StorageService {
     );
   }
 
-  getSignedUrl(bucket: string, key: string): string {
+  getPublicUrl(bucket: string, key: string): string {
     return `${process.env.MINIO_ENDPOINT}/${bucket}/${key}`;
   }
 }

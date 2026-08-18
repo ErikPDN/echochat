@@ -305,7 +305,7 @@ export class AuthServiceService {
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarKey
-        ? this.storageService.getSignedUrl('avatars', user.avatarKey)
+        ? this.storageService.getPublicUrl('avatars', user.avatarKey)
         : null,
     };
   }
