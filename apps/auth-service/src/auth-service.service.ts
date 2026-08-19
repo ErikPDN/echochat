@@ -21,6 +21,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { StorageService } from '@app/common';
 import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuthServiceService {
@@ -241,7 +242,15 @@ export class AuthServiceService {
     userId: string,
     file: Express.Multer.File,
   ): Promise<AvatarResponse> {
-    const key = `${userId}.${file.originalname.split('.').pop()}`;
+    const [existingUser] = await this.databaseAuthService.db
+      .select({ avatarKey: users.avatarKey })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const ext = file.originalname.split('.').pop();
+    const key = `${userId}/${randomUUID()}.${ext}`;
+
     const { avatarUrl } = await this.storageService.upload(
       'avatars',
       key,
@@ -253,6 +262,9 @@ export class AuthServiceService {
       .update(users)
       .set({ avatarKey: key })
       .where(eq(users.id, userId));
+
+    if (existingUser?.avatarKey)
+      await this.storageService.delete('avatars', existingUser.avatarKey);
 
     return { avatarUrl };
   }
@@ -280,7 +292,7 @@ export class AuthServiceService {
 
   private async issueRefreshToken(
     userId: string,
-    familyId: string = crypto.randomUUID(),
+    familyId: string = randomUUID(),
     sessionCreatedAt: Date = new Date(),
   ): Promise<string> {
     const rawToken = crypto.randomBytes(64).toString('hex');
