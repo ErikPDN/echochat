@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -22,6 +23,7 @@ import * as crypto from 'crypto';
 import { StorageService } from '@app/common';
 import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
 import { randomUUID } from 'crypto';
+import { UpdateUserDto } from '@app/contracts/auth/dto/update-user.dto';
 
 @Injectable()
 export class AuthServiceService {
@@ -286,6 +288,66 @@ export class AuthServiceService {
       .where(eq(users.id, userId));
   }
 
+  async updateUser(
+    dto: UpdateUserDto,
+    userId: string,
+  ): Promise<PublicUserResponse> {
+    const { name, username } = dto;
+
+    if (!username && !name) {
+      throw new BadRequestException(
+        'At least one field (name or username) must be provided for update',
+      );
+    }
+
+    const [existingUser] = await this.databaseAuthService.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const usernameChanged = username && username !== existingUser.username;
+    const nameChanged = name && name !== existingUser.name;
+
+    if (!usernameChanged && !nameChanged) {
+      return this.toPublicUserResponse(existingUser);
+    }
+
+    if (usernameChanged) {
+      const [userWithSameUsername] = await this.databaseAuthService.db
+        .select()
+        .from(users)
+        .where(eq(users.username, username))
+        .limit(1);
+
+      if (userWithSameUsername) {
+        throw new ConflictException('Username is already taken');
+      }
+    }
+
+    const updatedUser = await this.databaseAuthService.db.transaction(
+      async (tx) => {
+        const updateData: Partial<User> = { updatedAt: new Date() };
+        if (usernameChanged) updateData.username = username;
+        if (nameChanged) updateData.name = name;
+
+        const [user] = await tx
+          .update(users)
+          .set(updateData)
+          .where(eq(users.id, userId))
+          .returning();
+
+        return user;
+      },
+    );
+
+    return this.toPublicUserResponse(updatedUser);
+  }
+
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
@@ -316,6 +378,17 @@ export class AuthServiceService {
       username: user.username,
       name: user.name,
       email: user.email,
+      avatarUrl: user.avatarKey
+        ? this.storageService.getPublicUrl('avatars', user.avatarKey)
+        : null,
+    };
+  }
+
+  private toPublicUserResponse(user: User): PublicUserResponse {
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
       avatarUrl: user.avatarKey
         ? this.storageService.getPublicUrl('avatars', user.avatarKey)
         : null,

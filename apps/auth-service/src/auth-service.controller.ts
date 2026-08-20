@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Req,
   UploadedFile,
@@ -14,12 +15,13 @@ import {
 } from '@nestjs/common';
 import { AuthServiceService } from './auth-service.service';
 import { AuthResponse } from '@app/contracts/auth/interfaces/auth-response.interface';
-import { SignupDto } from '@app/contracts/auth/dto/signup.dto';
 import {
   InternalAuthResponse,
   LoginDto,
   PublicUserResponse,
   RefreshTokenDto,
+  SignupDto,
+  UpdateUserDto,
   VerifyUsersDto,
 } from '@app/contracts';
 import { JwtAuthGuard } from '@app/common/auth/jwt-auth.guard';
@@ -73,6 +75,15 @@ export class AuthServiceController {
       username,
       req.user.userId,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  updateUser(
+    @Body() dto: UpdateUserDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<PublicUserResponse> {
+    return this.authServiceService.updateUser(dto, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)

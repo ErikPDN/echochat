@@ -16,6 +16,7 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   Delete,
+  Patch,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -30,6 +31,7 @@ import {
 import { PublicUserResponse } from '@app/contracts/auth/interfaces/public-user-response.interface';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
+import { UpdateUserDto } from '@app/contracts/auth/dto/update-user.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -96,6 +98,15 @@ export class AuthController {
     @Headers('authorization') token: string,
   ): Promise<PublicUserResponse> {
     return this.authService.findUserByUsername(username, token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  updateUser(
+    @Headers('authorization') token: string,
+    @Body() dto: UpdateUserDto,
+  ): Promise<PublicUserResponse> {
+    return this.authService.updateUser(token, dto);
   }
 
   @UseGuards(JwtAuthGuard)
