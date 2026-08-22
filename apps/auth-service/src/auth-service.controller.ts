@@ -28,6 +28,7 @@ import { JwtAuthGuard } from '@app/common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '@app/common/auth';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
+import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 
 @Controller('auth')
 export class AuthServiceController {
@@ -44,7 +45,7 @@ export class AuthServiceController {
   }
 
   @Post('users/verify')
-  verifyUsers(@Body() dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+  verifyUsers(@Body() dto: VerifyUsersDto): Promise<UserInternalResponse[]> {
     return this.authServiceService.verifyUsers(dto);
   }
 

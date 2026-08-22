@@ -81,19 +81,30 @@ export class ChatServiceService {
       ...new Set(allMembers.map((member) => member.userId)),
     ]);
 
-    return userConversations.map((conversation) => ({
-      id: conversation.id,
-      type: conversation.type as ConversationType,
-      name: conversation.name,
-      avatarUrl: conversation.avatarKey
-        ? this.storageService.getPublicUrl('avatars', conversation.avatarKey)
-        : null,
-      createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
-      members: (membersByConversation.get(conversation.id) || []).map(
-        (member) => this.buildMemberResponse(member, usersById),
-      ),
-    }));
+    return userConversations.map((conversation) => {
+      const members = membersByConversation.get(conversation.id) || [];
+      const otherUserAvatarKey = this.resolveOtherUserAvatarKey(
+        members,
+        usersById,
+        userId,
+      );
+
+      return {
+        id: conversation.id,
+        type: conversation.type as ConversationType,
+        name: conversation.name,
+        avatarUrl: this.resolveAvatarUrl(
+          conversation.type as ConversationType,
+          otherUserAvatarKey,
+          conversation.avatarKey,
+        ),
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+        members: members.map((member) =>
+          this.buildMemberResponse(member, usersById),
+        ),
+      };
+    });
   }
 
   async createPrivateConversation(
@@ -118,7 +129,7 @@ export class ChatServiceService {
       await this.findExistingPrivateConversation(userId, memberId);
 
     if (existingPrivateConversation) {
-      return this.getConversationById(existingPrivateConversation.id);
+      return this.getConversationById(existingPrivateConversation.id, userId);
     }
 
     return this.insertConversation(
@@ -287,6 +298,7 @@ export class ChatServiceService {
 
   async getConversationById(
     conversationId: string,
+    userId: string,
   ): Promise<ConversationResponse> {
     const [conversation] = await this.databaseChatService.db
       .select()
@@ -312,10 +324,21 @@ export class ChatServiceService {
       members.map((member) => member.userId),
     );
 
+    const otherUserAvatarKey = this.resolveOtherUserAvatarKey(
+      members,
+      userById,
+      userId,
+    );
+
     return {
       id: conversation.id,
       type: conversation.type as ConversationType,
       name: conversation.name,
+      avatarUrl: this.resolveAvatarUrl(
+        conversation.type as ConversationType,
+        otherUserAvatarKey,
+        conversation.avatarKey,
+      ),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
       members: members.map((member) =>
@@ -397,13 +420,21 @@ export class ChatServiceService {
       result.members.map((member) => member.userId),
     );
 
+    const otherUserAvatarKey = this.resolveOtherUserAvatarKey(
+      result.members,
+      userById,
+      creatorId,
+    );
+
     return {
       id: result.id,
       type: result.type as ConversationType,
       name: result.name,
-      avatarUrl: result.avatarKey
-        ? this.storageService.getPublicUrl('avatars', result.avatarKey)
-        : null,
+      avatarUrl: this.resolveAvatarUrl(
+        result.type as ConversationType,
+        otherUserAvatarKey,
+        result.avatarKey,
+      ),
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
       members: result.members.map((member) =>
@@ -486,5 +517,34 @@ export class ChatServiceService {
       'code' in error &&
       (error as { code: string }).code === '23505'
     );
+  }
+
+  private resolveAvatarUrl(
+    conversationType: ConversationType,
+    otherUserAvatarKey?: string,
+    avatarKey?: string | null,
+  ) {
+    if (conversationType === ConversationType.PRIVATE) {
+      return otherUserAvatarKey
+        ? this.storageService.getPublicUrl('avatars', otherUserAvatarKey)
+        : null;
+    }
+
+    return avatarKey
+      ? this.storageService.getPublicUrl('avatars', avatarKey)
+      : null;
+  }
+
+  private resolveOtherUserAvatarKey(
+    members: Array<{ userId: string }>,
+    userById: Map<string, UserInternalResponse>,
+    currentUserId: string,
+  ): string | undefined {
+    const otherMember = members.find(
+      (member) => member.userId !== currentUserId,
+    );
+    return otherMember
+      ? (userById.get(otherMember.userId)?.avatarKey ?? undefined)
+      : undefined;
   }
 }
