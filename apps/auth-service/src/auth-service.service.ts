@@ -24,6 +24,7 @@ import { StorageService } from '@app/common';
 import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
 import { randomUUID } from 'crypto';
 import { UpdateUserDto } from '@app/contracts/auth/dto/update-user.dto';
+import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 
 @Injectable()
 export class AuthServiceService {
@@ -105,13 +106,14 @@ export class AuthServiceService {
     };
   }
 
-  async verifyUsers(dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+  async verifyUsers(dto: VerifyUsersDto): Promise<UserInternalResponse[]> {
     return this.databaseAuthService.db
       .select({
         id: users.id,
         username: users.username,
         name: users.name,
         email: users.email,
+        avatarKey: users.avatarKey,
       })
       .from(users)
       .where(inArray(users.id, dto.userIds));
