@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseChatService } from './database/database.service';
@@ -16,15 +17,25 @@ import {
   MemberRole,
 } from '@app/contracts';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { ConversationMember, conversations } from './database/schema';
+import {
+  Conversation,
+  ConversationMember,
+  conversations,
+} from './database/schema';
 import { conversationMembers } from './database/schema';
 import { AuthClientService } from './auth-client/auth-client.service';
+import { StorageService } from '@app/common';
+import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ChatServiceService {
+  private readonly logger: Logger = new Logger(ChatServiceService.name);
+
   constructor(
     private readonly databaseChatService: DatabaseChatService,
     private readonly authClientService: AuthClientService,
+    private readonly storageService: StorageService,
   ) {}
 
   async getUserConversations(userId: string): Promise<ConversationResponse[]> {
@@ -70,16 +81,30 @@ export class ChatServiceService {
       ...new Set(allMembers.map((member) => member.userId)),
     ]);
 
-    return userConversations.map((conversation) => ({
-      id: conversation.id,
-      type: conversation.type as ConversationType,
-      name: conversation.name,
-      createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
-      members: (membersByConversation.get(conversation.id) || []).map(
-        (member) => this.buildMemberResponse(member, usersById),
-      ),
-    }));
+    return userConversations.map((conversation) => {
+      const members = membersByConversation.get(conversation.id) || [];
+      const otherUserAvatarKey = this.resolveOtherUserAvatarKey(
+        members,
+        usersById,
+        userId,
+      );
+
+      return {
+        id: conversation.id,
+        type: conversation.type as ConversationType,
+        name: conversation.name,
+        avatarUrl: this.resolveAvatarUrl(
+          conversation.type as ConversationType,
+          otherUserAvatarKey,
+          conversation.avatarKey,
+        ),
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+        members: members.map((member) =>
+          this.buildMemberResponse(member, usersById),
+        ),
+      };
+    });
   }
 
   async createPrivateConversation(
@@ -104,7 +129,7 @@ export class ChatServiceService {
       await this.findExistingPrivateConversation(userId, memberId);
 
     if (existingPrivateConversation) {
-      return this.getConversationById(existingPrivateConversation.id);
+      return this.getConversationById(existingPrivateConversation.id, userId);
     }
 
     return this.insertConversation(
@@ -117,6 +142,7 @@ export class ChatServiceService {
   async createGroupConversation(
     dto: CreateGroupConversationDto,
     userId: string,
+    file?: Express.Multer.File,
   ): Promise<ConversationResponse> {
     const uniqueMemberIds = [...new Set(dto.memberIds)].filter(
       (id) => id !== userId,
@@ -146,6 +172,7 @@ export class ChatServiceService {
       uniqueMemberIds,
       userId,
       dto.groupName,
+      file,
     );
   }
 
@@ -271,6 +298,7 @@ export class ChatServiceService {
 
   async getConversationById(
     conversationId: string,
+    userId: string,
   ): Promise<ConversationResponse> {
     const [conversation] = await this.databaseChatService.db
       .select()
@@ -296,10 +324,21 @@ export class ChatServiceService {
       members.map((member) => member.userId),
     );
 
+    const otherUserAvatarKey = this.resolveOtherUserAvatarKey(
+      members,
+      userById,
+      userId,
+    );
+
     return {
       id: conversation.id,
       type: conversation.type as ConversationType,
       name: conversation.name,
+      avatarUrl: this.resolveAvatarUrl(
+        conversation.type as ConversationType,
+        otherUserAvatarKey,
+        conversation.avatarKey,
+      ),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
       members: members.map((member) =>
@@ -313,46 +352,89 @@ export class ChatServiceService {
     participantIds: string[],
     creatorId: string,
     name?: string,
+    file?: Express.Multer.File,
   ): Promise<ConversationResponse> {
-    const result = await this.databaseChatService.db.transaction(async (tx) => {
-      const [newConversation] = await tx
-        .insert(conversations)
-        .values({
-          type,
-          name: name ?? null,
-        })
-        .returning();
+    const conversationId = crypto.randomUUID();
+    let key: string | null = null;
 
-      const insertedMembers = await tx
-        .insert(conversationMembers)
-        .values([
-          {
-            conversationId: newConversation.id,
-            userId: creatorId,
-            role:
-              type === ConversationType.GROUP
-                ? MemberRole.ADMIN
-                : MemberRole.MEMBER,
-          },
-          ...participantIds.map((memberId) => ({
-            conversationId: newConversation.id,
-            userId: memberId,
-            role: MemberRole.MEMBER,
-          })),
-        ])
-        .returning();
+    if (file && type === ConversationType.GROUP) {
+      const ext = file.originalname.split('.').pop();
+      key = `${conversationId}/${randomUUID()}.${ext}`;
+      await this.storageService.upload(
+        'avatars',
+        key,
+        file.buffer,
+        file.mimetype,
+      );
+    }
 
-      return { ...newConversation, members: insertedMembers };
-    });
+    let result: Conversation & { members: ConversationMember[] };
+    try {
+      result = await this.databaseChatService.db.transaction(async (tx) => {
+        const [newConversation] = await tx
+          .insert(conversations)
+          .values({
+            id: conversationId,
+            type,
+            name: name ?? null,
+            avatarKey: key,
+          })
+          .returning();
+
+        const insertedMembers = await tx
+          .insert(conversationMembers)
+          .values([
+            {
+              conversationId: newConversation.id,
+              userId: creatorId,
+              role:
+                type === ConversationType.GROUP
+                  ? MemberRole.ADMIN
+                  : MemberRole.MEMBER,
+            },
+            ...participantIds.map((memberId) => ({
+              conversationId: newConversation.id,
+              userId: memberId,
+              role: MemberRole.MEMBER,
+            })),
+          ])
+          .returning();
+
+        return { ...newConversation, members: insertedMembers };
+      });
+    } catch (error) {
+      if (key) {
+        await this.storageService
+          .delete('avatars', key)
+          .catch((cleanupErr) =>
+            this.logger.error(
+              `Failed to clean up orphaned avatar ${key}`,
+              cleanupErr,
+            ),
+          );
+      }
+      throw error;
+    }
 
     const userById = await this.resolveUserNames(
       result.members.map((member) => member.userId),
+    );
+
+    const otherUserAvatarKey = this.resolveOtherUserAvatarKey(
+      result.members,
+      userById,
+      creatorId,
     );
 
     return {
       id: result.id,
       type: result.type as ConversationType,
       name: result.name,
+      avatarUrl: this.resolveAvatarUrl(
+        result.type as ConversationType,
+        otherUserAvatarKey,
+        result.avatarKey,
+      ),
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
       members: result.members.map((member) =>
@@ -363,7 +445,7 @@ export class ChatServiceService {
 
   private async resolveUserNames(
     userIds: string[],
-  ): Promise<Map<string, { username: string; name: string }>> {
+  ): Promise<Map<string, UserInternalResponse>> {
     if (userIds.length === 0) return new Map();
 
     const users = await this.authClientService.verifyUsers(userIds);
@@ -372,7 +454,7 @@ export class ChatServiceService {
 
   private buildMemberResponse(
     member: ConversationMember,
-    userById: Map<string, { username: string; name: string }>,
+    userById: Map<string, UserInternalResponse>,
   ): ConversationMemberResponse {
     const user = userById.get(member.userId);
     return {
@@ -382,6 +464,9 @@ export class ChatServiceService {
       role: member.role as MemberRole,
       joinedAt: member.joinedAt,
       leftAt: member.leftAt ?? undefined,
+      avatarUrl: user?.avatarKey
+        ? this.storageService.getPublicUrl('avatars', user.avatarKey)
+        : null,
     };
   }
 
@@ -432,5 +517,34 @@ export class ChatServiceService {
       'code' in error &&
       (error as { code: string }).code === '23505'
     );
+  }
+
+  private resolveAvatarUrl(
+    conversationType: ConversationType,
+    otherUserAvatarKey?: string,
+    avatarKey?: string | null,
+  ) {
+    if (conversationType === ConversationType.PRIVATE) {
+      return otherUserAvatarKey
+        ? this.storageService.getPublicUrl('avatars', otherUserAvatarKey)
+        : null;
+    }
+
+    return avatarKey
+      ? this.storageService.getPublicUrl('avatars', avatarKey)
+      : null;
+  }
+
+  private resolveOtherUserAvatarKey(
+    members: Array<{ userId: string }>,
+    userById: Map<string, UserInternalResponse>,
+    currentUserId: string,
+  ): string | undefined {
+    const otherMember = members.find(
+      (member) => member.userId !== currentUserId,
+    );
+    return otherMember
+      ? (userById.get(otherMember.userId)?.avatarKey ?? undefined)
+      : undefined;
   }
 }

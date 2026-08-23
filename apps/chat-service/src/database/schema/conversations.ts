@@ -9,6 +9,7 @@ export const conversations = pgTable('conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
   type: conversationTypeEnum('type').notNull(),
   name: varchar('name', { length: 255 }),
+  avatarKey: varchar('avatar_key', { length: 255 }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

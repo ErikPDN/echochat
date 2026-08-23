@@ -1,26 +1,34 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthServiceService } from './auth-service.service';
 import { AuthResponse } from '@app/contracts/auth/interfaces/auth-response.interface';
-import { SignupDto } from '@app/contracts/auth/dto/signup.dto';
 import {
   InternalAuthResponse,
   LoginDto,
   PublicUserResponse,
   RefreshTokenDto,
+  SignupDto,
+  UpdateUserDto,
   VerifyUsersDto,
 } from '@app/contracts';
 import { JwtAuthGuard } from '@app/common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '@app/common/auth';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
+import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 
 @Controller('auth')
 export class AuthServiceController {
@@ -37,7 +45,7 @@ export class AuthServiceController {
   }
 
   @Post('users/verify')
-  verifyUsers(@Body() dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+  verifyUsers(@Body() dto: VerifyUsersDto): Promise<UserInternalResponse[]> {
     return this.authServiceService.verifyUsers(dto);
   }
 
@@ -68,5 +76,30 @@ export class AuthServiceController {
       username,
       req.user.userId,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  updateUser(
+    @Body() dto: UpdateUserDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<PublicUserResponse> {
+    return this.authServiceService.updateUser(dto, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  updateAvatar(
+    @Req() req: AuthenticatedRequest,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<AvatarResponse> {
+    return this.authServiceService.updateAvatar(req.user.userId, file);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/avatar')
+  deleteAvatar(@Req() req: AuthenticatedRequest): Promise<void> {
+    return this.authServiceService.deleteAvatar(req.user.userId);
   }
 }

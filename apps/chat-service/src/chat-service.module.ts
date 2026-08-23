@@ -6,6 +6,7 @@ import { JwtAuthModule } from '@app/common/auth/jwt-auth.module';
 import { CommonModule } from '@app/common/common.module';
 import { DatabaseChatModule } from './database/database.module';
 import { AuthClientModule } from './auth-client/auth-client.module';
+import { StorageModule } from '@app/common/storage/storage.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AuthClientModule } from './auth-client/auth-client.module';
     JwtAuthModule,
     CommonModule,
     AuthClientModule,
+    StorageModule,
   ],
   controllers: [ChatServiceController],
   providers: [ChatServiceService],

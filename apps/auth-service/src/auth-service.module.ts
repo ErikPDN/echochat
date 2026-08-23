@@ -5,7 +5,8 @@ import { ConfigModule } from '@nestjs/config';
 import { DatabaseAuthModule } from './database/database.module';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtAuthModule } from '@app/common/auth';
-import { CommonModule } from '@app/common/common.module';
+import { CommonModule } from '@app/common';
+import { StorageModule } from '@app/common';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CommonModule } from '@app/common/common.module';
     }),
     JwtAuthModule,
     CommonModule,
+    StorageModule,
   ],
   controllers: [AuthServiceController],
   providers: [AuthServiceService],

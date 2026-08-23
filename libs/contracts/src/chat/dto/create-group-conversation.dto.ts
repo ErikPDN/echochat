@@ -1,5 +1,4 @@
 import {
-  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsString,

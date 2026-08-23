@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -15,16 +16,22 @@ import {
   SignupDto,
   VerifyUsersDto,
 } from '@app/contracts';
-import { refreshTokens, users } from './database/schema';
+import { refreshTokens, User, users } from './database/schema';
 import { eq, inArray, ne, or, and } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { StorageService } from '@app/common';
+import { AvatarResponse } from '@app/contracts/auth/interfaces/avatar-response.interface';
+import { randomUUID } from 'crypto';
+import { UpdateUserDto } from '@app/contracts/auth/dto/update-user.dto';
+import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 
 @Injectable()
 export class AuthServiceService {
   constructor(
     private readonly databaseAuthService: DatabaseAuthService,
     private readonly jwtService: JwtService,
+    private readonly storageService: StorageService,
   ) {}
 
   async signup(dto: SignupDto): Promise<InternalAuthResponse> {
@@ -60,12 +67,7 @@ export class AuthServiceService {
     const refreshToken = await this.issueRefreshToken(newUser.id);
 
     return {
-      user: {
-        id: newUser.id,
-        username: newUser.username,
-        name: newUser.name,
-        email: newUser.email,
-      },
+      user: this.toUserResponse(newUser),
       accessToken: token,
       refreshToken,
     };
@@ -98,24 +100,20 @@ export class AuthServiceService {
     const refreshToken = await this.issueRefreshToken(user.id);
 
     return {
-      user: {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        email: user.email,
-      },
+      user: this.toUserResponse(user),
       accessToken: token,
       refreshToken,
     };
   }
 
-  async verifyUsers(dto: VerifyUsersDto): Promise<AuthResponse['user'][]> {
+  async verifyUsers(dto: VerifyUsersDto): Promise<UserInternalResponse[]> {
     return this.databaseAuthService.db
       .select({
         id: users.id,
         username: users.username,
         name: users.name,
         email: users.email,
+        avatarKey: users.avatarKey,
       })
       .from(users)
       .where(inArray(users.id, dto.userIds));
@@ -123,12 +121,7 @@ export class AuthServiceService {
 
   async getProfile(userId: string): Promise<AuthResponse['user']> {
     const [user] = await this.databaseAuthService.db
-      .select({
-        id: users.id,
-        username: users.username,
-        name: users.name,
-        email: users.email,
-      })
+      .select()
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)
@@ -136,7 +129,8 @@ export class AuthServiceService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    return user;
+    const userResponse = this.toUserResponse(user);
+    return userResponse;
   }
 
   async refreshToken(dto: RefreshTokenDto): Promise<InternalAuthResponse> {
@@ -204,12 +198,7 @@ export class AuthServiceService {
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        email: user.email,
-      },
+      user: this.toUserResponse(user),
     };
   }
 
@@ -253,13 +242,121 @@ export class AuthServiceService {
     };
   }
 
+  async updateAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<AvatarResponse> {
+    const [existingUser] = await this.databaseAuthService.db
+      .select({ avatarKey: users.avatarKey })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const ext = file.originalname.split('.').pop();
+    const key = `${userId}/${randomUUID()}.${ext}`;
+
+    const { avatarUrl } = await this.storageService.upload(
+      'avatars',
+      key,
+      file.buffer,
+      file.mimetype,
+    );
+
+    await this.databaseAuthService.db
+      .update(users)
+      .set({ avatarKey: key })
+      .where(eq(users.id, userId));
+
+    if (existingUser?.avatarKey)
+      await this.storageService.delete('avatars', existingUser.avatarKey);
+
+    return { avatarUrl };
+  }
+
+  async deleteAvatar(userId: string): Promise<void> {
+    const [user] = await this.databaseAuthService.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user || !user.avatarKey) return;
+
+    await this.storageService.delete('avatars', user.avatarKey);
+
+    await this.databaseAuthService.db
+      .update(users)
+      .set({ avatarKey: null })
+      .where(eq(users.id, userId));
+  }
+
+  async updateUser(
+    dto: UpdateUserDto,
+    userId: string,
+  ): Promise<PublicUserResponse> {
+    const { name, username } = dto;
+
+    if (!username && !name) {
+      throw new BadRequestException(
+        'At least one field (name or username) must be provided for update',
+      );
+    }
+
+    const [existingUser] = await this.databaseAuthService.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const usernameChanged = username && username !== existingUser.username;
+    const nameChanged = name && name !== existingUser.name;
+
+    if (!usernameChanged && !nameChanged) {
+      return this.toPublicUserResponse(existingUser);
+    }
+
+    if (usernameChanged) {
+      const [userWithSameUsername] = await this.databaseAuthService.db
+        .select()
+        .from(users)
+        .where(eq(users.username, username))
+        .limit(1);
+
+      if (userWithSameUsername) {
+        throw new ConflictException('Username is already taken');
+      }
+    }
+
+    const updatedUser = await this.databaseAuthService.db.transaction(
+      async (tx) => {
+        const updateData: Partial<User> = { updatedAt: new Date() };
+        if (usernameChanged) updateData.username = username;
+        if (nameChanged) updateData.name = name;
+
+        const [user] = await tx
+          .update(users)
+          .set(updateData)
+          .where(eq(users.id, userId))
+          .returning();
+
+        return user;
+      },
+    );
+
+    return this.toPublicUserResponse(updatedUser);
+  }
+
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
   private async issueRefreshToken(
     userId: string,
-    familyId: string = crypto.randomUUID(),
+    familyId: string = randomUUID(),
     sessionCreatedAt: Date = new Date(),
   ): Promise<string> {
     const rawToken = crypto.randomBytes(64).toString('hex');
@@ -275,5 +372,28 @@ export class AuthServiceService {
     });
 
     return rawToken;
+  }
+
+  private toUserResponse(user: User): AuthResponse['user'] {
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarKey
+        ? this.storageService.getPublicUrl('avatars', user.avatarKey)
+        : null,
+    };
+  }
+
+  private toPublicUserResponse(user: User): PublicUserResponse {
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      avatarUrl: user.avatarKey
+        ? this.storageService.getPublicUrl('avatars', user.avatarKey)
+        : null,
+    };
   }
 }

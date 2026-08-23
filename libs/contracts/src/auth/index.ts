@@ -2,6 +2,8 @@ export * from './dto/signup.dto';
 export * from './dto/login.dto';
 export * from './dto/refresh-token.dto';
 export * from './dto/verify-users.dto';
+export * from './dto/update-user.dto';
+export * from './interfaces/avatar-response.interface';
 export * from './interfaces/internal-auth-response';
 export * from './interfaces/nest-error-response.interface';
 export * from './interfaces/auth-response.interface';

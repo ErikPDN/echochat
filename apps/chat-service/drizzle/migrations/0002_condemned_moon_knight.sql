@@ -1,0 +1,1 @@
+ALTER TABLE "conversations" ALTER COLUMN "avatar_key" SET DATA TYPE varchar(255);

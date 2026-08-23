@@ -17,6 +17,7 @@ import {
   CreatePrivateConversationDto,
   CreateGroupConversationDto,
 } from '@app/contracts';
+import FormData from 'form-data';
 
 @Injectable()
 export class ChatService {
@@ -63,12 +64,25 @@ export class ChatService {
   async createGroupConversation(
     dto: CreateGroupConversationDto,
     token: string,
+    file?: Express.Multer.File,
   ): Promise<ConversationResponse> {
+    const formData = new FormData();
+    formData.append('groupName', dto.groupName);
+    dto.memberIds.forEach((memberId) => formData.append('memberIds', memberId));
+
+    if (file) {
+      formData.append('file', file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype,
+      });
+    }
+
     const response = await firstValueFrom(
       this.httpService
-        .post(`${this.apiUrl}/conversations/group`, dto, {
+        .post(`${this.apiUrl}/conversations/group`, formData, {
           headers: {
             Authorization: token,
+            ...formData.getHeaders(),
           },
         })
         .pipe(

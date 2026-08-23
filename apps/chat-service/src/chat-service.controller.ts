@@ -7,6 +7,8 @@ import {
   Req,
   UseGuards,
   Param,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ChatServiceService } from './chat-service.service';
 import type { AuthenticatedRequest } from '@app/common/auth/auth-request.interface';
@@ -17,6 +19,7 @@ import {
   CreateGroupConversationDto,
   CreatePrivateConversationDto,
 } from '@app/contracts';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('conversations')
 export class ChatServiceController {
@@ -44,13 +47,16 @@ export class ChatServiceController {
 
   @UseGuards(JwtAuthGuard)
   @Post('group')
+  @UseInterceptors(FileInterceptor('file'))
   createGroupConversation(
     @Body() dto: CreateGroupConversationDto,
     @Req() req: AuthenticatedRequest,
+    @UploadedFile() file?: Express.Multer.File,
   ): Promise<ConversationResponse> {
     return this.chatServiceService.createGroupConversation(
       dto,
       req.user.userId,
+      file,
     );
   }
 

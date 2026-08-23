@@ -1,4 +1,4 @@
-import { AuthResponse } from '@app/contracts';
+import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 import { HttpService } from '@nestjs/axios';
 import {
   HttpException,
@@ -21,7 +21,7 @@ export class AuthClientService {
     private readonly httpService: HttpService,
   ) {}
 
-  async verifyUsers(userIds: string[]): Promise<AuthResponse['user'][]> {
+  async verifyUsers(userIds: string[]): Promise<UserInternalResponse[]> {
     const response = await firstValueFrom(
       this.httpService
         .post(`${this.authServiceUrl}/auth/users/verify`, {

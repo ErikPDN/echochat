@@ -15,6 +15,20 @@
       "when": 1785867584923,
       "tag": "0001_gorgeous_toro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786923281471,
+      "tag": "0002_tearful_warpath",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786924080151,
+      "tag": "0003_uneven_captain_cross",
+      "breakpoints": true
     }
   ]
 }
