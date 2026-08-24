@@ -65,3 +65,11 @@ Decisão consciente: em vez de criar uma hierarquia de exceções próprias (`ex
 **Por que foi adiado**: um catálogo central criado por antecipação tende a ficar obsoleto/morto (visto na prática num projeto de referência — `ErrorCode.ts` com um único valor, nunca importado em lugar nenhum). Com poucas exceções ativas hoje, a hierarquia própria seria boilerplate sem ganho imediato.
 
 **Quando revisitar**: se uma exceção específica precisar carregar mais contexto estruturado do que `message` + `errorCode` (ex: lista de campos inválidos com metadata própria), ou se o número de `throw` sites crescer a ponto de duplicação de `errorCode` virar risco real de inconsistência — aí sim vale extrair uma classe base própria.
+
+## 9. Sem camada de repository sobre o Drizzle — queries direto nos services
+
+`chat-service.service.ts` chama `this.databaseChatService.db.select()/.insert()/.transaction()` direto nos métodos de negócio, sem uma camada de repository entre o service e o schema Drizzle. É a abordagem padrão do Drizzle (sem Entity/Repository como no TypeORM — o schema é só a forma dos dados, sem comportamento), mas já gera duplicação de condição de query: `eq(conversationMembers.conversationId, ...), isNull(conversationMembers.leftAt)` se repete em pelo menos 4 métodos (`getUserConversations`, `addUserToConversation`, `getConversationById`, `insertConversation`).
+
+**Por que foi adiado**: fase 1 ainda é sobre fazer o chat funcionar via REST puro; extrair uma camada de repository fina (ex: `ConversationsRepository` injetável) é reorganização de código, não feature — não bloqueia o roadmap atual, e a superfície de queries do chat-service ainda está mudando (métodos sendo adicionados/corrigidos, como o resolve de avatar de conversa privada).
+
+**Quando revisitar**: depois que a fase 1 estabilizar (chat-service com CRUD de conversas/membros completo), antes de mais services repetirem o mesmo padrão direto-no-service — nesse ponto, extrair repositories por agregado (`ConversationsRepository`, `UsersRepository`, etc.) fica mais fácil de justificar.
