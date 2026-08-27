@@ -1,0 +1,44 @@
+import {
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
+import { ContentType } from '@app/contracts';
+
+export class SendMessageDto {
+  @IsOptional()
+  @IsUUID(4, { message: 'messageId must be a valid UUID v4' })
+  messageId?: string;
+
+  @IsUUID(4, { message: 'conversationId must be a valid UUID v4' })
+  conversationId!: string;
+
+  @IsArray({ message: 'Recipients must be an array' })
+  @ArrayUnique({ message: 'Recipients must be unique' })
+  @IsUUID('4', {
+    each: true,
+    message: 'Each recipient must be a valid UUID v4',
+  })
+  recipientIds!: string[];
+
+  @ValidateIf((dto) => dto.contentType === ContentType.TEXT)
+  @IsString({ message: 'Content must be a string' })
+  @MinLength(1, { message: 'Content must not be empty' })
+  @MaxLength(10000, { message: 'Content must not exceed 10000 characters' })
+  content?: string;
+
+  @IsEnum(ContentType, { message: 'Content type must be a valid ContentType' })
+  contentType!: ContentType;
+
+  @IsOptional()
+  @IsArray({ message: 'fileIds must be an array' })
+  @IsUUID('4', { each: true, message: 'Each fileId must be a valid UUID v4' })
+  fileIds?: string[];
+}
