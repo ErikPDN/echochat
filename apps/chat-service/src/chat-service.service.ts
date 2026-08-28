@@ -27,6 +27,7 @@ import { AuthClientService } from './auth-client/auth-client.service';
 import { StorageService } from '@app/common';
 import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 import { randomUUID } from 'crypto';
+import { ConversationParticipantResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 
 @Injectable()
 export class ChatServiceService {
@@ -300,25 +301,8 @@ export class ChatServiceService {
     conversationId: string,
     userId: string,
   ): Promise<ConversationResponse> {
-    const [conversation] = await this.databaseChatService.db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.id, conversationId))
-      .limit(1);
-
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
-
-    const members = await this.databaseChatService.db
-      .select()
-      .from(conversationMembers)
-      .where(
-        and(
-          eq(conversationMembers.conversationId, conversationId),
-          isNull(conversationMembers.leftAt),
-        ),
-      );
+    const { conversation, members } =
+      await this.fetchConversationWithMembers(conversationId);
 
     const userById = await this.resolveUserNames(
       members.map((member) => member.userId),
@@ -344,6 +328,19 @@ export class ChatServiceService {
       members: members.map((member) =>
         this.buildMemberResponse(member, userById),
       ),
+    };
+  }
+
+  async getConversationParticipants(
+    conversationId: string,
+  ): Promise<ConversationParticipantResponse> {
+    const { conversation, members } =
+      await this.fetchConversationWithMembers(conversationId);
+
+    return {
+      conversationId: conversation.id,
+      type: conversation.type as ConversationType,
+      members: members.map((m) => m.userId),
     };
   }
 
@@ -546,5 +543,27 @@ export class ChatServiceService {
     return otherMember
       ? (userById.get(otherMember.userId)?.avatarKey ?? undefined)
       : undefined;
+  }
+
+  private async fetchConversationWithMembers(conversationId: string) {
+    const [conversation] = await this.databaseChatService.db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const members = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    return { conversation, members };
   }
 }

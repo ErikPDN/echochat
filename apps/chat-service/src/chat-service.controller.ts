@@ -20,6 +20,7 @@ import {
   CreatePrivateConversationDto,
 } from '@app/contracts';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ConversationParticipantResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 
 @Controller('conversations')
 export class ChatServiceController {
@@ -72,5 +73,12 @@ export class ChatServiceController {
       conversationId,
       req.user.userId,
     );
+  }
+
+  @Get(':conversationId/participants')
+  getConversationParticipants(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+  ): Promise<ConversationParticipantResponse> {
+    return this.chatServiceService.getConversationParticipants(conversationId);
   }
 }

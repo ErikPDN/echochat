@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth-service/auth.module';
 import { CommonModule } from '@app/common';
 import { ChatModule } from './chat-service/chat.module';
+import { MessageModule } from './message-service/message.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ChatModule } from './chat-service/chat.module';
     AuthModule,
     CommonModule,
     ChatModule,
+    MessageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
