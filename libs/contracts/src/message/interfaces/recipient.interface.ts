@@ -1,4 +1,4 @@
-import { MessageStatus } from '@app/contracts';
+import { MessageStatus } from '../enums/message-status.enum';
 
 export interface Recipient {
   userId: string;

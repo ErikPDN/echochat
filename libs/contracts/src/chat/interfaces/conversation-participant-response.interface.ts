@@ -1,4 +1,4 @@
-import { ConversationType } from '@app/contracts';
+import { ConversationType } from '../enums/conversation-type.enum';
 
 export interface ConversationParticipantResponse {
   conversationId: string;

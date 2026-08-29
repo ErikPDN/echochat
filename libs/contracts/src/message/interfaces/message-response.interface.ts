@@ -1,4 +1,4 @@
-import { ContentType } from '@app/contracts';
+import { ContentType } from '../enums/content-type.enum';
 import { Recipient } from './recipient.interface';
 
 export interface MessageResponse {

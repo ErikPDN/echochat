@@ -41,6 +41,23 @@ export class MessageService {
     return response.data;
   }
 
+  async listMessages(
+    conversationId: string,
+    token: string,
+  ): Promise<MessageResponse[]> {
+    const response = await firstValueFrom(
+      this.httpService
+        .get(`${this.messageServiceUrl}/messages/${conversationId}`, {
+          headers: {
+            Authorization: token,
+          },
+        })
+        .pipe(this.handleError('Error during list messages request')),
+    );
+
+    return response.data;
+  }
+
   private handleError<T>(context: string): OperatorFunction<T, T> {
     return catchError((error: AxiosError<NestErrorResponse>) => {
       this.logger.error(`${context}: ${error.message}`, error.stack);

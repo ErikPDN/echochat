@@ -1,4 +1,13 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { MessageServiceService } from './message-service.service';
 import { MessageResponse, SendMessageDto } from '@app/contracts';
 import type { AuthenticatedRequest } from '@app/common';
@@ -15,5 +24,17 @@ export class MessageServiceController {
     @Req() req: AuthenticatedRequest,
   ): Promise<MessageResponse> {
     return this.messageServiceService.sendMessage(dto, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':conversationId')
+  listMessages(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<MessageResponse[]> {
+    return this.messageServiceService.listMessages(
+      conversationId,
+      req.user.userId,
+    );
   }
 }

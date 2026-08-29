@@ -1,7 +1,7 @@
-import { ContentType } from '@app/contracts';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { Recipient, RecipientSchema } from './recipient.schema';
+import { ContentType } from '@app/contracts';
 
 export type MessageDocument = HydratedDocument<Message>;
 

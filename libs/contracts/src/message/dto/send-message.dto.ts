@@ -1,5 +1,4 @@
 import {
-  ArrayUnique,
   IsArray,
   IsEnum,
   IsOptional,
@@ -10,7 +9,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { ContentType } from '@app/contracts';
+import { ContentType } from '../enums/content-type.enum';
 
 export class SendMessageDto {
   @IsOptional()

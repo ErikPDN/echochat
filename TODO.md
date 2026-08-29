@@ -76,3 +76,11 @@ Decisão consciente: em vez de criar uma hierarquia de exceções próprias (`ex
 **Por que foi adiado**: fase 1 ainda é sobre fazer o chat funcionar via REST puro; extrair uma camada de repository fina (ex: `ConversationsRepository` injetável) é reorganização de código, não feature — não bloqueia o roadmap atual, e a superfície de queries do chat-service ainda está mudando (métodos sendo adicionados/corrigidos, como o resolve de avatar de conversa privada).
 
 **Quando revisitar**: depois que a fase 1 estabilizar (chat-service com CRUD de conversas/membros completo), antes de mais services repetirem o mesmo padrão direto-no-service — nesse ponto, extrair repositories por agregado (`ConversationsRepository`, `UsersRepository`, etc.) fica mais fácil de justificar.
+
+## 10. `MessageServiceService.listMessages` sem paginação
+
+`GET /messages/:conversationId` retorna `this.messageModel.find({ conversationId }).sort({ createdAt: -1 })` sem `limit`/`skip`/cursor — busca o histórico inteiro da conversa de uma vez. Funciona hoje porque não tem volume real de mensagens ainda.
+
+**Por que foi adiado**: sem usuários reais gerando histórico longo, paginar agora é otimizar sem dado nenhum de uso real — foco da fase 1 é fechar o fluxo send/list ponta a ponta primeiro.
+
+**Quando revisitar**: antes de qualquer teste com volume de mensagens realista, ou ao construir a tela de histórico no front (que vai precisar de scroll incremental de qualquer forma). Provável formato: paginação por cursor usando `createdAt`/`_id` (não offset/`skip`, que degrada em coleções grandes) — o índice composto `{ conversationId: 1, createdAt: -1 }` que já existe no schema já dá suporte a isso sem mudança de índice.
