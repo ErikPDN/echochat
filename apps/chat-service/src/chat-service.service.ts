@@ -90,10 +90,20 @@ export class ChatServiceService {
         userId,
       );
 
+      const otherUserName = this.resolveOtherUserName(
+        members,
+        usersById,
+        userId,
+      );
+
       return {
         id: conversation.id,
         type: conversation.type as ConversationType,
-        name: conversation.name,
+        name: this.resolveConversationName(
+          conversation.type as ConversationType,
+          conversation.name,
+          otherUserName,
+        ),
         avatarUrl: this.resolveAvatarUrl(
           conversation.type as ConversationType,
           otherUserAvatarKey,
@@ -314,10 +324,16 @@ export class ChatServiceService {
       userId,
     );
 
+    const otherUserName = this.resolveOtherUserName(members, userById, userId);
+
     return {
       id: conversation.id,
       type: conversation.type as ConversationType,
-      name: conversation.name,
+      name: this.resolveConversationName(
+        conversation.type as ConversationType,
+        conversation.name,
+        otherUserName,
+      ),
       avatarUrl: this.resolveAvatarUrl(
         conversation.type as ConversationType,
         otherUserAvatarKey,
@@ -325,9 +341,7 @@ export class ChatServiceService {
       ),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
-      members: members.map((member) =>
-        this.buildMemberResponse(member, userById),
-      ),
+      members: members,
     };
   }
 
@@ -340,7 +354,14 @@ export class ChatServiceService {
     return {
       conversationId: conversation.id,
       type: conversation.type as ConversationType,
-      members: members.map((m) => m.userId),
+      members: members.map((member) => {
+        return {
+          userId: member.userId,
+          username: member.username,
+          name: member.name,
+          avatarUrl: member.avatarUrl ?? null,
+        };
+      }),
     };
   }
 
@@ -423,10 +444,20 @@ export class ChatServiceService {
       creatorId,
     );
 
+    const otherUserName = this.resolveOtherUserName(
+      result.members,
+      userById,
+      creatorId,
+    );
+
     return {
       id: result.id,
       type: result.type as ConversationType,
-      name: result.name,
+      name: this.resolveConversationName(
+        result.type as ConversationType,
+        result.name,
+        otherUserName,
+      ),
       avatarUrl: this.resolveAvatarUrl(
         result.type as ConversationType,
         otherUserAvatarKey,
@@ -532,6 +563,18 @@ export class ChatServiceService {
       : null;
   }
 
+  private resolveOtherUserName(
+    members: Array<{ userId: string }>,
+    userById: Map<string, UserInternalResponse>,
+    currentUserId: string,
+  ): string | null {
+    const otherMember = members.find(
+      (member) => member.userId !== currentUserId,
+    );
+    if (!otherMember) return null;
+    return userById.get(otherMember.userId)?.name ?? 'Unknown';
+  }
+
   private resolveOtherUserAvatarKey(
     members: Array<{ userId: string }>,
     userById: Map<string, UserInternalResponse>,
@@ -564,6 +607,26 @@ export class ChatServiceService {
         ),
       );
 
-    return { conversation, members };
+    const userById = await this.resolveUserNames(
+      members.map((member) => member.userId),
+    );
+
+    return {
+      conversation,
+      members: members.map((member) =>
+        this.buildMemberResponse(member, userById),
+      ),
+    };
+  }
+
+  private resolveConversationName(
+    conversationType: ConversationType,
+    conversationName: string | null,
+    otherUserName: string | null,
+  ): string | null {
+    if (conversationType === ConversationType.PRIVATE) {
+      return otherUserName ?? 'Unknown';
+    }
+    return conversationName;
   }
 }

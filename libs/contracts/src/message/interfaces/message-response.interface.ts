@@ -5,6 +5,9 @@ export interface MessageResponse {
   messageId: string;
   conversationId: string;
   senderId: string;
+  senderName: string;
+  senderUsername: string;
+  senderAvatarUrl?: string | null;
   recipients: Recipient[];
   content?: string;
   contentType: ContentType;

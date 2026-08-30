@@ -16,6 +16,12 @@ export class Message {
   @Prop({ index: true })
   senderId!: string;
 
+  @Prop({})
+  senderName!: string;
+
+  @Prop({})
+  senderUsername!: string;
+
   @Prop({ type: [RecipientSchema], default: [] })
   recipients!: Recipient[];
 
