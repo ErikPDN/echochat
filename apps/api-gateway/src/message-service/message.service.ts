@@ -25,16 +25,21 @@ export class MessageService {
   ) {}
 
   async sendMessage(
+    conversationId: string,
     dto: SendMessageDto,
     token: string,
   ): Promise<MessageResponse> {
     const response = await firstValueFrom(
       this.httpService
-        .post(`${this.messageServiceUrl}/messages/send-message`, dto, {
-          headers: {
-            Authorization: token,
+        .post(
+          `${this.messageServiceUrl}/conversations/${conversationId}/messages`,
+          dto,
+          {
+            headers: {
+              Authorization: token,
+            },
           },
-        })
+        )
         .pipe(this.handleError('Error during send message request')),
     );
 
@@ -47,11 +52,14 @@ export class MessageService {
   ): Promise<MessageResponse[]> {
     const response = await firstValueFrom(
       this.httpService
-        .get(`${this.messageServiceUrl}/messages/${conversationId}`, {
-          headers: {
-            Authorization: token,
+        .get(
+          `${this.messageServiceUrl}/conversations/${conversationId}/messages`,
+          {
+            headers: {
+              Authorization: token,
+            },
           },
-        })
+        )
         .pipe(this.handleError('Error during list messages request')),
     );
 

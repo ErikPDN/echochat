@@ -16,13 +16,11 @@ export class MessageServiceService {
   ) {}
 
   async sendMessage(
+    conversationId: string,
     message: SendMessageDto,
     senderId: string,
   ): Promise<MessageResponse> {
-    const members = await this.assertMembership(
-      message.conversationId,
-      senderId,
-    );
+    const members = await this.assertMembership(conversationId, senderId);
 
     const messageId = message.messageId ?? randomUUID();
     const recipientIds = members
@@ -34,6 +32,7 @@ export class MessageServiceService {
     const newMessage = await this.messageModel.create({
       ...message,
       messageId,
+      conversationId,
       senderId,
       senderName: sender?.name,
       senderUsername: sender?.username,
@@ -52,7 +51,7 @@ export class MessageServiceService {
 
     const messages = await this.messageModel
       .find({ conversationId })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: 1 });
 
     return messages.map((message) =>
       this.toMessageResponse(message, membersById),

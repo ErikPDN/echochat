@@ -13,21 +13,26 @@ import { MessageResponse, SendMessageDto } from '@app/contracts';
 import type { AuthenticatedRequest } from '@app/common';
 import { JwtAuthGuard } from '@app/common';
 
-@Controller('messages')
+@Controller('conversations')
 export class MessageServiceController {
   constructor(private readonly messageServiceService: MessageServiceService) {}
 
   @UseGuards(JwtAuthGuard)
-  @Post('send-message')
+  @Post(':conversationId/messages')
   sendMessage(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Body() dto: SendMessageDto,
     @Req() req: AuthenticatedRequest,
   ): Promise<MessageResponse> {
-    return this.messageServiceService.sendMessage(dto, req.user.userId);
+    return this.messageServiceService.sendMessage(
+      conversationId,
+      dto,
+      req.user.userId,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':conversationId')
+  @Get(':conversationId/messages')
   listMessages(
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Req() req: AuthenticatedRequest,

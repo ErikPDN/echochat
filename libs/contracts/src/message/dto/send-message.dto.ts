@@ -16,9 +16,6 @@ export class SendMessageDto {
   @IsUUID(4, { message: 'messageId must be a valid UUID v4' })
   messageId?: string;
 
-  @IsUUID(4, { message: 'conversationId must be a valid UUID v4' })
-  conversationId!: string;
-
   @ValidateIf((dto) => dto.contentType === ContentType.TEXT)
   @IsString({ message: 'Content must be a string' })
   @MinLength(1, { message: 'Content must not be empty' })
