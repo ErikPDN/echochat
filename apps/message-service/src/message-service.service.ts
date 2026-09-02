@@ -2,10 +2,11 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MessageDocument } from './database/schema';
-import { MessageResponse, SendMessageDto } from '@app/contracts';
+import { MessageResponse, MessageStatus, SendMessageDto } from '@app/contracts';
 import { ChatClientService } from './chat-client/chat-client.service';
 import { randomUUID } from 'crypto';
 import { MemberResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
+import { ConversationSummaryResponse } from '@app/contracts/message/interfaces/conversation-summary-response.interface';
 
 @Injectable()
 export class MessageServiceService {
@@ -58,20 +59,114 @@ export class MessageServiceService {
     );
   }
 
+  async getSummary(
+    conversationIds: string[],
+    userId: string,
+  ): Promise<ConversationSummaryResponse[]> {
+    const membersByConversation = await this.assertMemberships(
+      conversationIds,
+      userId,
+    );
+
+    const rows = await this.messageModel.aggregate<{
+      _id: string;
+      lastMessage: MessageDocument;
+      unreadCount: number;
+    }>([
+      { $match: { conversationId: { $in: conversationIds } } },
+      { $sort: { conversationId: 1, createdAt: -1 } },
+      {
+        $group: {
+          _id: '$conversationId',
+          lastMessage: { $first: '$$ROOT' },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $anyElementTrue: {
+                    $map: {
+                      input: '$recipients',
+                      as: 'r',
+                      in: {
+                        $and: [
+                          { $eq: ['$$r.userId', userId] },
+                          { $ne: ['$$r.status', MessageStatus.READ] },
+                        ],
+                      },
+                    },
+                  },
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const byConversation = new Map(rows.map((r) => [r._id, r]));
+
+    return conversationIds.map((conversationId) => {
+      const row = byConversation.get(conversationId);
+      if (!row) {
+        return { conversationId, lastMessage: null, unreadCount: 0 };
+      }
+
+      const membersById = this.indexMembers(
+        membersByConversation.get(conversationId) ?? [],
+      );
+      const sender = membersById.get(row.lastMessage.senderId);
+
+      return {
+        conversationId,
+        lastMessage: {
+          messageId: row.lastMessage.messageId,
+          content: row.lastMessage.content,
+          contentType: row.lastMessage.contentType,
+          senderId: row.lastMessage.senderId,
+          senderName: sender?.name ?? row.lastMessage.senderName,
+          createdAt: row.lastMessage.createdAt,
+        },
+        unreadCount: row.unreadCount,
+      };
+    });
+  }
+
   private async assertMembership(
     conversationId: string,
     userId: string,
   ): Promise<MemberResponse[]> {
-    const conversation =
-      await this.conversationService.getConversationParticipants(
-        conversationId,
+    const byConversation = await this.assertMemberships(
+      [conversationId],
+      userId,
+    );
+    return byConversation.get(conversationId) ?? [];
+  }
+
+  private async assertMemberships(
+    conversationIds: string[],
+    userId: string,
+  ): Promise<Map<string, MemberResponse[]>> {
+    const conversations =
+      await this.conversationService.getConversationsParticipants(
+        conversationIds,
       );
 
-    if (!conversation.members.some((member) => member.userId === userId)) {
-      throw new ForbiddenException('User is not a member of the conversation');
+    const membersByConversation = new Map(
+      conversations.map((c) => [c.conversationId, c.members]),
+    );
+
+    for (const conversationId of conversationIds) {
+      const members = membersByConversation.get(conversationId);
+      if (!members?.some((member) => member.userId === userId)) {
+        throw new ForbiddenException(
+          `User ${userId} is not a member of conversation ${conversationId}`,
+        );
+      }
     }
 
-    return conversation.members;
+    return membersByConversation;
   }
 
   private indexMembers(members: MemberResponse[]): Map<string, MemberResponse> {

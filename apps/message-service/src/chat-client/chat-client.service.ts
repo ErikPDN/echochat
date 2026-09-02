@@ -20,16 +20,24 @@ export class ChatClientService {
     private readonly httpService: HttpService,
   ) {}
 
-  async getConversationParticipants(
-    conversationId: string,
-  ): Promise<ConversationParticipantResponse> {
+  async getConversationsParticipants(
+    conversationIds: string[],
+  ): Promise<ConversationParticipantResponse[]> {
     const response = await firstValueFrom(
       this.httpService
-        .get(
-          `${this.chatServiceUrl}/conversations/${conversationId}/participants`,
+        .get<ConversationParticipantResponse[]>(
+          `${this.chatServiceUrl}/conversations/participants`,
+          {
+            params: { conversationIds: conversationIds.join(',') },
+          },
         )
-        .pipe(this.handleError('Error during get conversation by id request')),
+        .pipe(
+          this.handleError(
+            'Error during get conversations participants request',
+          ),
+        ),
     );
+
     return response.data;
   }
 

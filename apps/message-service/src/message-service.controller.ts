@@ -5,17 +5,35 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { MessageServiceService } from './message-service.service';
-import { MessageResponse, SendMessageDto } from '@app/contracts';
+import {
+  ConversationSummaryResponse,
+  GetSummaryQueryDto,
+  MessageResponse,
+  SendMessageDto,
+} from '@app/contracts';
 import type { AuthenticatedRequest } from '@app/common';
 import { JwtAuthGuard } from '@app/common';
 
 @Controller('conversations')
 export class MessageServiceController {
   constructor(private readonly messageServiceService: MessageServiceService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Get('/messages/summary')
+  getSummary(
+    @Query() query: GetSummaryQueryDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<ConversationSummaryResponse[]> {
+    return this.messageServiceService.getSummary(
+      query.conversationIds,
+      req.user.userId,
+    );
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post(':conversationId/messages')

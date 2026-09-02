@@ -27,7 +27,10 @@ import { AuthClientService } from './auth-client/auth-client.service';
 import { StorageService } from '@app/common';
 import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 import { randomUUID } from 'crypto';
-import { ConversationParticipantResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
+import {
+  ConversationParticipantResponse,
+  MemberResponse,
+} from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 
 @Injectable()
 export class ChatServiceService {
@@ -345,24 +348,51 @@ export class ChatServiceService {
     };
   }
 
-  async getConversationParticipants(
-    conversationId: string,
-  ): Promise<ConversationParticipantResponse> {
-    const { conversation, members } =
-      await this.fetchConversationWithMembers(conversationId);
+  async getConversationsParticipants(
+    conversationIds: string[],
+  ): Promise<ConversationParticipantResponse[]> {
+    if (conversationIds.length === 0) return [];
 
-    return {
-      conversationId: conversation.id,
-      type: conversation.type as ConversationType,
-      members: members.map((member) => {
-        return {
-          userId: member.userId,
-          username: member.username,
-          name: member.name,
-          avatarUrl: member.avatarUrl ?? null,
-        };
-      }),
-    };
+    const rows = await this.databaseChatService.db
+      .select()
+      .from(conversations)
+      .where(inArray(conversations.id, conversationIds));
+
+    if (rows.length === 0) return [];
+
+    const foundIds = rows.map((row) => row.id);
+
+    const allMembers = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          inArray(conversationMembers.conversationId, foundIds),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    const usersById = await this.resolveUserNames([
+      ...new Set(allMembers.map((member) => member.userId)),
+    ]);
+
+    const membersByConversation = new Map<string, MemberResponse[]>();
+    for (const member of allMembers) {
+      const list = membersByConversation.get(member.conversationId) || [];
+      list.push(this.buildMemberResponse(member, usersById));
+      membersByConversation.set(member.conversationId, list);
+    }
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+
+    return conversationIds
+      .map((id) => byId.get(id))
+      .filter((c): c is NonNullable<typeof c> => c != null)
+      .map((conversation) => ({
+        conversationId: conversation.id,
+        type: conversation.type as ConversationType,
+        members: membersByConversation.get(conversation.id) ?? [],
+      }));
   }
 
   private async insertConversation(
