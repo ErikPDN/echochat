@@ -66,6 +66,23 @@ export class MessageService {
     return response.data;
   }
 
+  async getSummary(conversationIds: string[], token: string): Promise<any> {
+    const response = await firstValueFrom(
+      this.httpService
+        .get(`${this.messageServiceUrl}/conversations/messages/summary`, {
+          headers: {
+            Authorization: token,
+          },
+          params: {
+            conversationIds: conversationIds.join(','),
+          },
+        })
+        .pipe(this.handleError('Error during get summary request')),
+    );
+
+    return response.data;
+  }
+
   private handleError<T>(context: string): OperatorFunction<T, T> {
     return catchError((error: AxiosError<NestErrorResponse>) => {
       this.logger.error(`${context}: ${error.message}`, error.stack);

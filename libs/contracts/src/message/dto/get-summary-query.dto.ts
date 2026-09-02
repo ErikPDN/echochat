@@ -3,7 +3,11 @@ import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsUUID } from 'class-validator';
 
 export class GetSummaryQueryDto {
   @Transform(({ value }) =>
-    Array.isArray(value) ? value : String(value).split(','),
+    value == null
+      ? []
+      : Array.isArray(value)
+        ? value
+        : String(value).split(','),
   )
   @IsArray()
   @ArrayNotEmpty()

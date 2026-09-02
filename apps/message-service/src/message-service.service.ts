@@ -63,17 +63,20 @@ export class MessageServiceService {
     conversationIds: string[],
     userId: string,
   ): Promise<ConversationSummaryResponse[]> {
-    const membersByConversation = await this.assertMemberships(
-      conversationIds,
-      userId,
+    const membersByConversation = await this.fetchMemberships(conversationIds);
+
+    const allowedIds = conversationIds.filter((id) =>
+      this.isMember(membersByConversation.get(id), userId),
     );
+
+    if (allowedIds.length === 0) return [];
 
     const rows = await this.messageModel.aggregate<{
       _id: string;
       lastMessage: MessageDocument;
       unreadCount: number;
     }>([
-      { $match: { conversationId: { $in: conversationIds } } },
+      { $match: { conversationId: { $in: allowedIds } } },
       { $sort: { conversationId: 1, createdAt: -1 } },
       {
         $group: {
@@ -107,7 +110,7 @@ export class MessageServiceService {
 
     const byConversation = new Map(rows.map((r) => [r._id, r]));
 
-    return conversationIds.map((conversationId) => {
+    return allowedIds.map((conversationId) => {
       const row = byConversation.get(conversationId);
       if (!row) {
         return { conversationId, lastMessage: null, unreadCount: 0 };
@@ -137,40 +140,43 @@ export class MessageServiceService {
     conversationId: string,
     userId: string,
   ): Promise<MemberResponse[]> {
-    const byConversation = await this.assertMemberships(
-      [conversationId],
-      userId,
-    );
-    return byConversation.get(conversationId) ?? [];
+    const byConversation = await this.fetchMemberships([conversationId]);
+    const members = byConversation.get(conversationId);
+
+    if (!this.isMember(members, userId)) {
+      throw new ForbiddenException(
+        `User ${userId} is not a member of conversation ${conversationId}`,
+      );
+    }
+
+    return members!;
   }
 
-  private async assertMemberships(
+  private async fetchMemberships(
     conversationIds: string[],
-    userId: string,
   ): Promise<Map<string, MemberResponse[]>> {
     const conversations =
       await this.conversationService.getConversationsParticipants(
         conversationIds,
       );
 
-    const membersByConversation = new Map(
-      conversations.map((c) => [c.conversationId, c.members]),
+    return new Map(
+      conversations.map((conversation) => [
+        conversation.conversationId,
+        conversation.members,
+      ]),
     );
-
-    for (const conversationId of conversationIds) {
-      const members = membersByConversation.get(conversationId);
-      if (!members?.some((member) => member.userId === userId)) {
-        throw new ForbiddenException(
-          `User ${userId} is not a member of conversation ${conversationId}`,
-        );
-      }
-    }
-
-    return membersByConversation;
   }
 
   private indexMembers(members: MemberResponse[]): Map<string, MemberResponse> {
     return new Map(members.map((member) => [member.userId, member]));
+  }
+
+  private isMember(
+    members: MemberResponse[] | undefined,
+    userId: string,
+  ): boolean {
+    return members?.some((member) => member.userId === userId) ?? false;
   }
 
   private toMessageResponse(
