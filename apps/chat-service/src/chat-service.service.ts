@@ -379,7 +379,7 @@ export class ChatServiceService {
     const membersByConversation = new Map<string, MemberResponse[]>();
     for (const member of allMembers) {
       const list = membersByConversation.get(member.conversationId) || [];
-      list.push(this.buildMemberResponse(member, usersById));
+      list.push(this.buildParticipantResponse(member, usersById));
       membersByConversation.set(member.conversationId, list);
     }
 
@@ -393,6 +393,29 @@ export class ChatServiceService {
         type: conversation.type as ConversationType,
         members: membersByConversation.get(conversation.id) ?? [],
       }));
+  }
+
+  async markConversationAsRead(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    const [updated] = await this.databaseChatService.db
+      .update(conversationMembers)
+      .set({ lastReadAt: new Date() })
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          eq(conversationMembers.userId, userId),
+          isNull(conversationMembers.leftAt),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundException(
+        `User ${userId} is not a member of conversation ${conversationId}`,
+      );
+    }
   }
 
   private async insertConversation(
@@ -522,6 +545,22 @@ export class ChatServiceService {
       role: member.role as MemberRole,
       joinedAt: member.joinedAt,
       leftAt: member.leftAt ?? undefined,
+      avatarUrl: user?.avatarKey
+        ? this.storageService.getPublicUrl('avatars', user.avatarKey)
+        : null,
+    };
+  }
+
+  private buildParticipantResponse(
+    member: ConversationMember,
+    userById: Map<string, UserInternalResponse>,
+  ): MemberResponse {
+    const user = userById.get(member.userId);
+    return {
+      userId: member.userId,
+      username: user?.username ?? 'Unknown',
+      name: user?.name ?? 'Unknown',
+      lastReadAt: member.lastReadAt,
       avatarUrl: user?.avatarKey
         ? this.storageService.getPublicUrl('avatars', user.avatarKey)
         : null,

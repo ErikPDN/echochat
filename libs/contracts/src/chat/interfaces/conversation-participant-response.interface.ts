@@ -5,6 +5,7 @@ export interface MemberResponse {
   username: string;
   name: string;
   avatarUrl?: string | null;
+  lastReadAt: Date;
 }
 
 export interface ConversationParticipantResponse {

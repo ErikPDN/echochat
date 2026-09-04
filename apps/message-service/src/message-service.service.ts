@@ -71,67 +71,70 @@ export class MessageServiceService {
 
     if (allowedIds.length === 0) return [];
 
-    const rows = await this.messageModel.aggregate<{
-      _id: string;
-      lastMessage: MessageDocument;
-      unreadCount: number;
-    }>([
-      { $match: { conversationId: { $in: allowedIds } } },
-      { $sort: { conversationId: 1, createdAt: -1 } },
-      {
-        $group: {
-          _id: '$conversationId',
-          lastMessage: { $first: '$$ROOT' },
-          unreadCount: {
-            $sum: {
-              $cond: [
-                {
-                  $anyElementTrue: {
-                    $map: {
-                      input: '$recipients',
-                      as: 'r',
-                      in: {
-                        $and: [
-                          { $eq: ['$$r.userId', userId] },
-                          { $ne: ['$$r.status', MessageStatus.READ] },
-                        ],
-                      },
-                    },
-                  },
-                },
-                1,
-                0,
-              ],
-            },
+    const lastReadAtByConversation = new Map(
+      allowedIds.map((id) => [
+        id,
+        new Date(
+          membersByConversation.get(id)!.find((m) => m.userId === userId)!
+            .lastReadAt,
+        ),
+      ]),
+    );
+
+    const [lastMessageRows, unreadRows] = await Promise.all([
+      this.messageModel.aggregate<{
+        _id: string;
+        lastMessage: MessageDocument;
+      }>([
+        { $match: { conversationId: { $in: allowedIds } } },
+        { $sort: { conversationId: 1, createdAt: -1 } },
+        {
+          $group: { _id: '$conversationId', lastMessage: { $first: '$$ROOT' } },
+        },
+      ]),
+      this.messageModel.aggregate<{ _id: string; unreadCount: number }>([
+        {
+          $match: {
+            senderId: { $ne: userId },
+            $or: allowedIds.map((id) => ({
+              conversationId: id,
+              createdAt: { $gt: lastReadAtByConversation.get(id) },
+            })),
           },
         },
-      },
+        { $group: { _id: '$conversationId', unreadCount: { $sum: 1 } } },
+      ]),
     ]);
 
-    const byConversation = new Map(rows.map((r) => [r._id, r]));
+    const lastMessageByConversation = new Map(
+      lastMessageRows.map((r) => [r._id, r.lastMessage]),
+    );
+    const unreadByConversation = new Map(
+      unreadRows.map((r) => [r._id, r.unreadCount]),
+    );
 
     return allowedIds.map((conversationId) => {
-      const row = byConversation.get(conversationId);
-      if (!row) {
+      const lastMessage = lastMessageByConversation.get(conversationId);
+      if (!lastMessage) {
         return { conversationId, lastMessage: null, unreadCount: 0 };
       }
 
       const membersById = this.indexMembers(
         membersByConversation.get(conversationId) ?? [],
       );
-      const sender = membersById.get(row.lastMessage.senderId);
+      const sender = membersById.get(lastMessage.senderId);
 
       return {
         conversationId,
         lastMessage: {
-          messageId: row.lastMessage.messageId,
-          content: row.lastMessage.content,
-          contentType: row.lastMessage.contentType,
-          senderId: row.lastMessage.senderId,
-          senderName: sender?.name ?? row.lastMessage.senderName,
-          createdAt: row.lastMessage.createdAt,
+          messageId: lastMessage.messageId,
+          content: lastMessage.content,
+          contentType: lastMessage.contentType,
+          senderId: lastMessage.senderId,
+          senderName: sender?.name ?? lastMessage.senderName,
+          createdAt: lastMessage.createdAt,
         },
-        unreadCount: row.unreadCount,
+        unreadCount: unreadByConversation.get(conversationId) ?? 0,
       };
     });
   }

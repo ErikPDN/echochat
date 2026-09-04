@@ -113,6 +113,23 @@ export class ChatService {
     return response.data;
   }
 
+  async markConversationAsRead(
+    conversationId: string,
+    token: string,
+  ): Promise<void> {
+    await firstValueFrom(
+      this.httpService
+        .patch(`${this.apiUrl}/conversations/${conversationId}/read`, null, {
+          headers: {
+            Authorization: token,
+          },
+        })
+        .pipe(
+          this.handleError('Error during mark conversation as read request'),
+        ),
+    );
+  }
+
   private handleError<T>(context: string): OperatorFunction<T, T> {
     return catchError((error: AxiosError<NestErrorResponse>) => {
       this.logger.error(`${context}: ${error.message}`, error.stack);

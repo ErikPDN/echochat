@@ -10,6 +10,7 @@ import {
   UploadedFile,
   UseInterceptors,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { ChatServiceService } from './chat-service.service';
 import type { AuthenticatedRequest } from '@app/common/auth/auth-request.interface';
@@ -63,6 +64,15 @@ export class ChatServiceController {
     );
   }
 
+  @Get('participants')
+  getConversationsParticipants(
+    @Query() query: GetSummaryQueryDto,
+  ): Promise<ConversationParticipantResponse[]> {
+    return this.chatServiceService.getConversationsParticipants(
+      query.conversationIds,
+    );
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post(':conversationId/members')
   addUserToConversation(
@@ -77,12 +87,15 @@ export class ChatServiceController {
     );
   }
 
-  @Get('participants')
-  getConversationsParticipants(
-    @Query() query: GetSummaryQueryDto,
-  ): Promise<ConversationParticipantResponse[]> {
-    return this.chatServiceService.getConversationsParticipants(
-      query.conversationIds,
+  @UseGuards(JwtAuthGuard)
+  @Patch(':conversationId/read')
+  markConversationAsRead(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<void> {
+    return this.chatServiceService.markConversationAsRead(
+      conversationId,
+      req.user.userId,
     );
   }
 }

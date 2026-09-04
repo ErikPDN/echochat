@@ -1,0 +1,2 @@
+ALTER TABLE "conversation_members" ALTER COLUMN "last_read_at" SET DATA TYPE timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "conversation_members" ALTER COLUMN "last_read_at" SET DEFAULT now();
