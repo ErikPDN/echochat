@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '@app/common';
 import {
   ConversationSummaryResponse,
   GetSummaryQueryDto,
+  ListMessageQueryDto,
   MessageResponse,
   SendMessageDto,
 } from '@app/contracts';
@@ -45,8 +46,9 @@ export class MessageController {
   @Get(':conversationId/messages')
   listMessages(
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Query() query: ListMessageQueryDto,
     @Headers('authorization') token: string,
   ): Promise<MessageResponse[]> {
-    return this.messageService.listMessages(conversationId, token);
+    return this.messageService.listMessages(conversationId, token, query);
   }
 }

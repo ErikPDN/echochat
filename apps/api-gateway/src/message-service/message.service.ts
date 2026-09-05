@@ -1,4 +1,5 @@
 import {
+  ListMessageQueryDto,
   MessageResponse,
   NestErrorResponse,
   SendMessageDto,
@@ -31,7 +32,7 @@ export class MessageService {
   ): Promise<MessageResponse> {
     const response = await firstValueFrom(
       this.httpService
-        .post(
+        .post<MessageResponse>(
           `${this.messageServiceUrl}/conversations/${conversationId}/messages`,
           dto,
           {
@@ -49,14 +50,19 @@ export class MessageService {
   async listMessages(
     conversationId: string,
     token: string,
+    query: ListMessageQueryDto,
   ): Promise<MessageResponse[]> {
     const response = await firstValueFrom(
       this.httpService
-        .get(
+        .get<MessageResponse[]>(
           `${this.messageServiceUrl}/conversations/${conversationId}/messages`,
           {
             headers: {
               Authorization: token,
+            },
+            params: {
+              before: query.before,
+              limit: query.limit,
             },
           },
         )

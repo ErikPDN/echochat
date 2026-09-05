@@ -13,6 +13,7 @@ import { MessageServiceService } from './message-service.service';
 import {
   ConversationSummaryResponse,
   GetSummaryQueryDto,
+  ListMessageQueryDto,
   MessageResponse,
   SendMessageDto,
 } from '@app/contracts';
@@ -53,11 +54,13 @@ export class MessageServiceController {
   @Get(':conversationId/messages')
   listMessages(
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Query() query: ListMessageQueryDto,
     @Req() req: AuthenticatedRequest,
   ): Promise<MessageResponse[]> {
     return this.messageServiceService.listMessages(
       conversationId,
       req.user.userId,
+      query,
     );
   }
 }

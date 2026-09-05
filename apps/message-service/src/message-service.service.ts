@@ -1,13 +1,17 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { MessageDocument } from './database/schema';
-import { MessageResponse, MessageStatus, SendMessageDto } from '@app/contracts';
+import { Message, MessageDocument } from './database/schema';
+import {
+  ListMessageQueryDto,
+  MessageResponse,
+  SendMessageDto,
+} from '@app/contracts';
 import { ChatClientService } from './chat-client/chat-client.service';
 import { randomUUID } from 'crypto';
 import { MemberResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 import { ConversationSummaryResponse } from '@app/contracts/message/interfaces/conversation-summary-response.interface';
-
+import { QueryFilter } from 'mongoose';
 @Injectable()
 export class MessageServiceService {
   constructor(
@@ -46,17 +50,24 @@ export class MessageServiceService {
   async listMessages(
     conversationId: string,
     userId: string,
+    { before, limit = 30 }: ListMessageQueryDto,
   ): Promise<MessageResponse[]> {
     const members = await this.assertMembership(conversationId, userId);
     const membersById = this.indexMembers(members);
 
-    const messages = await this.messageModel
-      .find({ conversationId })
-      .sort({ createdAt: 1 });
+    const filter: QueryFilter<Message> = { conversationId };
+    if (before) {
+      filter.createdAt = { $lt: new Date(before) };
+    }
 
-    return messages.map((message) =>
-      this.toMessageResponse(message, membersById),
-    );
+    const messages = await this.messageModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    return messages
+      .reverse()
+      .map((message) => this.toMessageResponse(message, membersById));
   }
 
   async getSummary(
