@@ -41,6 +41,20 @@ export class ChatClientService {
     return response.data;
   }
 
+  async markConversationAsVisible(conversationId: string): Promise<void> {
+    const response = await firstValueFrom(
+      this.httpService
+        .post<void>(
+          `${this.chatServiceUrl}/conversations/${conversationId}/mark-visible`,
+        )
+        .pipe(
+          this.handleError('Error during mark conversation as visible request'),
+        ),
+    );
+
+    return response.data;
+  }
+
   private handleError<T>(context: string): OperatorFunction<T, T> {
     return catchError((error: AxiosError) => {
       this.logger.error(`${context}: ${error.message}`, error.stack);

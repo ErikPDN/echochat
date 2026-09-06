@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   ParseUUIDPipe,
   Post,
   Req,
@@ -64,7 +65,6 @@ export class ChatServiceController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('participants')
   getConversationsParticipants(
     @Query() query: GetSummaryQueryDto,
@@ -98,5 +98,13 @@ export class ChatServiceController {
       conversationId,
       req.user.userId,
     );
+  }
+
+  @Post(':conversationId/mark-visible')
+  @HttpCode(204)
+  markConversationAsVisible(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+  ): Promise<void> {
+    return this.chatServiceService.markConversationAsVisible(conversationId);
   }
 }

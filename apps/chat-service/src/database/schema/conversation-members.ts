@@ -18,6 +18,7 @@ export const conversationMembers = pgTable(
       .notNull()
       .defaultNow(),
     role: conversationMembersRoleEnum('role').notNull().default('member'),
+    visibleAt: timestamp('visible_at', { withTimezone: true }),
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
     leftAt: timestamp('left_at'),
   },

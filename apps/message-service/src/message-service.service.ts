@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Message, MessageDocument } from './database/schema';
@@ -14,6 +14,8 @@ import { ConversationSummaryResponse } from '@app/contracts/message/interfaces/c
 import { QueryFilter } from 'mongoose';
 @Injectable()
 export class MessageServiceService {
+  private readonly logger = new Logger(MessageServiceService.name);
+
   constructor(
     @InjectModel('Message')
     private readonly messageModel: Model<MessageDocument>,
@@ -43,6 +45,14 @@ export class MessageServiceService {
       senderUsername: sender?.username,
       recipients: recipientIds.map((id) => ({ userId: id })),
     });
+
+    void this.conversationService
+      .markConversationAsVisible(conversationId)
+      .catch((err: Error) =>
+        this.logger.warn(
+          `Falha ao marcar conversa ${conversationId} como visível: ${err.message}`,
+        ),
+      );
 
     return this.toMessageResponse(newMessage, this.indexMembers(members));
   }
