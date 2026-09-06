@@ -14,6 +14,9 @@ export const conversationMembers = pgTable(
       .notNull()
       .references(() => conversations.id, { onDelete: 'cascade' }),
     userId: uuid('user_id').notNull(),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     role: conversationMembersRoleEnum('role').notNull().default('member'),
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
     leftAt: timestamp('left_at'),

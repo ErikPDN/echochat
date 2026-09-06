@@ -9,6 +9,8 @@ import {
   Param,
   UploadedFile,
   UseInterceptors,
+  Query,
+  Patch,
 } from '@nestjs/common';
 import { ChatServiceService } from './chat-service.service';
 import type { AuthenticatedRequest } from '@app/common/auth/auth-request.interface';
@@ -18,8 +20,10 @@ import { ConversationResponse } from '@app/contracts/chat/interfaces/conversatio
 import {
   CreateGroupConversationDto,
   CreatePrivateConversationDto,
+  GetSummaryQueryDto,
 } from '@app/contracts';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ConversationParticipantResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 
 @Controller('conversations')
 export class ChatServiceController {
@@ -61,6 +65,16 @@ export class ChatServiceController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('participants')
+  getConversationsParticipants(
+    @Query() query: GetSummaryQueryDto,
+  ): Promise<ConversationParticipantResponse[]> {
+    return this.chatServiceService.getConversationsParticipants(
+      query.conversationIds,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(':conversationId/members')
   addUserToConversation(
     @Body() dto: AddUserToConversationDto,
@@ -69,6 +83,18 @@ export class ChatServiceController {
   ): Promise<ConversationResponse> {
     return this.chatServiceService.addUserToConversation(
       dto,
+      conversationId,
+      req.user.userId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':conversationId/read')
+  markConversationAsRead(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<void> {
+    return this.chatServiceService.markConversationAsRead(
       conversationId,
       req.user.userId,
     );

@@ -1,15 +1,16 @@
 import {
   Body,
   Controller,
+  Post,
+  UseGuards,
+  Headers,
+  ParseUUIDPipe,
   Get,
   Param,
-  ParseUUIDPipe,
-  Post,
   Query,
-  Req,
-  UseGuards,
 } from '@nestjs/common';
-import { MessageServiceService } from './message-service.service';
+import { MessageService } from './message.service';
+import { JwtAuthGuard } from '@app/common';
 import {
   ConversationSummaryResponse,
   GetSummaryQueryDto,
@@ -17,23 +18,18 @@ import {
   MessageResponse,
   SendMessageDto,
 } from '@app/contracts';
-import type { AuthenticatedRequest } from '@app/common';
-import { JwtAuthGuard } from '@app/common';
 
 @Controller('conversations')
-export class MessageServiceController {
-  constructor(private readonly messageServiceService: MessageServiceService) {}
+export class MessageController {
+  constructor(private readonly messageService: MessageService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('/messages/summary')
   getSummary(
+    @Headers('authorization') token: string,
     @Query() query: GetSummaryQueryDto,
-    @Req() req: AuthenticatedRequest,
   ): Promise<ConversationSummaryResponse[]> {
-    return this.messageServiceService.getSummary(
-      query.conversationIds,
-      req.user.userId,
-    );
+    return this.messageService.getSummary(query.conversationIds, token);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -41,13 +37,9 @@ export class MessageServiceController {
   sendMessage(
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Body() dto: SendMessageDto,
-    @Req() req: AuthenticatedRequest,
+    @Headers('authorization') token: string,
   ): Promise<MessageResponse> {
-    return this.messageServiceService.sendMessage(
-      conversationId,
-      dto,
-      req.user.userId,
-    );
+    return this.messageService.sendMessage(conversationId, dto, token);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -55,12 +47,8 @@ export class MessageServiceController {
   listMessages(
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Query() query: ListMessageQueryDto,
-    @Req() req: AuthenticatedRequest,
+    @Headers('authorization') token: string,
   ): Promise<MessageResponse[]> {
-    return this.messageServiceService.listMessages(
-      conversationId,
-      req.user.userId,
-      query,
-    );
+    return this.messageService.listMessages(conversationId, token, query);
   }
 }

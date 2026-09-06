@@ -10,13 +10,16 @@ Pontos identificados durante a construção do `chat-service` e adiados de prop�
 
 **Quando revisitar**: se duplicatas aparecerem de verdade em teste, ou antes de qualquer uso multiusuário real.
 
-## 2. chat-service valida existência de usuário via chamada HTTP síncrona pro auth-service
+## 2. Dependências síncronas entre serviços via REST (fase 1) — devem virar Kafka + cache local na fase 3
 
-`AuthClientService.verifyUsers` → `POST /auth/users/verify`. Acopla a disponibilidade de escrita do chat-service à disponibilidade do auth-service, mesmo os dois tendo bancos Postgres completamente separados.
+Duas instâncias do mesmo padrão de acoplamento, ambas esperadas da fase 1 ("REST puro"):
 
-**Por que foi adiado**: é a solução esperada da fase 1 ("REST puro") do roadmap em `CLAUDE.md`. Kafka entra na fase 3 — nesse ponto, o auth-service pode publicar um evento `user.created` e o chat-service manter um cache local mínimo de ids válidos, removendo o acoplamento síncrono.
+- `chat-service` valida existência de usuário via `AuthClientService.verifyUsers` → `POST /auth/users/verify` no auth-service. Acopla a disponibilidade de escrita do chat-service à disponibilidade do auth-service, mesmo os dois tendo bancos Postgres completamente separados.
+- `message-service` busca participantes da conversa via `ChatClientService.getConversationParticipants` → `GET /conversations/:id/participants` no chat-service, pra popular `recipients` de uma mensagem. Mesmo acoplamento, na direção message-service → chat-service.
 
-**Quando revisitar**: quando o trabalho de Kafka (fase 3) começar, não antes.
+**Por que foi adiado**: é a solução esperada da fase 1 do roadmap em `CLAUDE.md`. Kafka entra na fase 3 — nesse ponto, cada serviço produtor (auth-service, chat-service) publica os eventos relevantes (`user.created`, conversa criada/membro adicionado) e o serviço consumidor (chat-service, message-service) mantém um cache local mínimo dos dados que hoje busca de forma síncrona, removendo as duas chamadas HTTP internas.
+
+**Quando revisitar**: quando o trabalho de Kafka (fase 3) começar, não antes. Nesse mesmo momento entra o Redis pra idempotência de mensagem (dedup de `messageId` antes de persistir/publicar) — inspirado no fluxo do Chat4All (`IdempotencyService` + `MessageProducer` + histórico de transição de status via `MessageStatusHistory`), adaptado pro shape de dados atual do EchoChat.
 
 ## 3. `POST /auth/users/verify` no auth-service não tem autenticação de serviço
 
@@ -73,3 +76,11 @@ Decisão consciente: em vez de criar uma hierarquia de exceções próprias (`ex
 **Por que foi adiado**: fase 1 ainda é sobre fazer o chat funcionar via REST puro; extrair uma camada de repository fina (ex: `ConversationsRepository` injetável) é reorganização de código, não feature — não bloqueia o roadmap atual, e a superfície de queries do chat-service ainda está mudando (métodos sendo adicionados/corrigidos, como o resolve de avatar de conversa privada).
 
 **Quando revisitar**: depois que a fase 1 estabilizar (chat-service com CRUD de conversas/membros completo), antes de mais services repetirem o mesmo padrão direto-no-service — nesse ponto, extrair repositories por agregado (`ConversationsRepository`, `UsersRepository`, etc.) fica mais fácil de justificar.
+
+## 10. `MessageServiceService.listMessages` sem paginação
+
+`GET /messages/:conversationId` retorna `this.messageModel.find({ conversationId }).sort({ createdAt: -1 })` sem `limit`/`skip`/cursor — busca o histórico inteiro da conversa de uma vez. Funciona hoje porque não tem volume real de mensagens ainda.
+
+**Por que foi adiado**: sem usuários reais gerando histórico longo, paginar agora é otimizar sem dado nenhum de uso real — foco da fase 1 é fechar o fluxo send/list ponta a ponta primeiro.
+
+**Quando revisitar**: antes de qualquer teste com volume de mensagens realista, ou ao construir a tela de histórico no front (que vai precisar de scroll incremental de qualquer forma). Provável formato: paginação por cursor usando `createdAt`/`_id` (não offset/`skip`, que degrada em coleções grandes) — o índice composto `{ conversationId: 1, createdAt: -1 }` que já existe no schema já dá suporte a isso sem mudança de índice.

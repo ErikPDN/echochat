@@ -14,6 +14,7 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   UseInterceptors,
+  Patch,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { ConversationResponse } from '@app/contracts/chat/interfaces/conversation-response.interface';
@@ -71,5 +72,14 @@ export class ChatController {
     @Headers('authorization') token: string,
   ): Promise<ConversationResponse> {
     return this.chatService.addUserToConversation(dto, conversationId, token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':conversationId/read')
+  markConversationAsRead(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Headers('authorization') token: string,
+  ): Promise<void> {
+    return this.chatService.markConversationAsRead(conversationId, token);
   }
 }

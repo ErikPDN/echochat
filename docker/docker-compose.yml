@@ -39,7 +39,7 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: echochat
       MONGO_INITDB_ROOT_PASSWORD: echochat
-      MONGO_INITDB_DATABASE: echochat
+      MONGO_INITDB_DATABASE: echochat_message
     volumes:
       - mongo-data:/data/db
     healthcheck:

@@ -27,6 +27,10 @@ import { AuthClientService } from './auth-client/auth-client.service';
 import { StorageService } from '@app/common';
 import { UserInternalResponse } from '@app/contracts/auth/interfaces/user-internal-response.interface';
 import { randomUUID } from 'crypto';
+import {
+  ConversationParticipantResponse,
+  MemberResponse,
+} from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 
 @Injectable()
 export class ChatServiceService {
@@ -89,10 +93,20 @@ export class ChatServiceService {
         userId,
       );
 
+      const otherUserName = this.resolveOtherUserName(
+        members,
+        usersById,
+        userId,
+      );
+
       return {
         id: conversation.id,
         type: conversation.type as ConversationType,
-        name: conversation.name,
+        name: this.resolveConversationName(
+          conversation.type as ConversationType,
+          conversation.name,
+          otherUserName,
+        ),
         avatarUrl: this.resolveAvatarUrl(
           conversation.type as ConversationType,
           otherUserAvatarKey,
@@ -300,25 +314,8 @@ export class ChatServiceService {
     conversationId: string,
     userId: string,
   ): Promise<ConversationResponse> {
-    const [conversation] = await this.databaseChatService.db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.id, conversationId))
-      .limit(1);
-
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
-    }
-
-    const members = await this.databaseChatService.db
-      .select()
-      .from(conversationMembers)
-      .where(
-        and(
-          eq(conversationMembers.conversationId, conversationId),
-          isNull(conversationMembers.leftAt),
-        ),
-      );
+    const { conversation, members } =
+      await this.fetchConversationWithMembers(conversationId);
 
     const userById = await this.resolveUserNames(
       members.map((member) => member.userId),
@@ -330,10 +327,16 @@ export class ChatServiceService {
       userId,
     );
 
+    const otherUserName = this.resolveOtherUserName(members, userById, userId);
+
     return {
       id: conversation.id,
       type: conversation.type as ConversationType,
-      name: conversation.name,
+      name: this.resolveConversationName(
+        conversation.type as ConversationType,
+        conversation.name,
+        otherUserName,
+      ),
       avatarUrl: this.resolveAvatarUrl(
         conversation.type as ConversationType,
         otherUserAvatarKey,
@@ -341,10 +344,78 @@ export class ChatServiceService {
       ),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
-      members: members.map((member) =>
-        this.buildMemberResponse(member, userById),
-      ),
+      members: members,
     };
+  }
+
+  async getConversationsParticipants(
+    conversationIds: string[],
+  ): Promise<ConversationParticipantResponse[]> {
+    if (conversationIds.length === 0) return [];
+
+    const rows = await this.databaseChatService.db
+      .select()
+      .from(conversations)
+      .where(inArray(conversations.id, conversationIds));
+
+    if (rows.length === 0) return [];
+
+    const foundIds = rows.map((row) => row.id);
+
+    const allMembers = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          inArray(conversationMembers.conversationId, foundIds),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    const usersById = await this.resolveUserNames([
+      ...new Set(allMembers.map((member) => member.userId)),
+    ]);
+
+    const membersByConversation = new Map<string, MemberResponse[]>();
+    for (const member of allMembers) {
+      const list = membersByConversation.get(member.conversationId) || [];
+      list.push(this.buildParticipantResponse(member, usersById));
+      membersByConversation.set(member.conversationId, list);
+    }
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+
+    return conversationIds
+      .map((id) => byId.get(id))
+      .filter((c): c is NonNullable<typeof c> => c != null)
+      .map((conversation) => ({
+        conversationId: conversation.id,
+        type: conversation.type as ConversationType,
+        members: membersByConversation.get(conversation.id) ?? [],
+      }));
+  }
+
+  async markConversationAsRead(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    const [updated] = await this.databaseChatService.db
+      .update(conversationMembers)
+      .set({ lastReadAt: new Date() })
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          eq(conversationMembers.userId, userId),
+          isNull(conversationMembers.leftAt),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundException(
+        `User ${userId} is not a member of conversation ${conversationId}`,
+      );
+    }
   }
 
   private async insertConversation(
@@ -426,10 +497,20 @@ export class ChatServiceService {
       creatorId,
     );
 
+    const otherUserName = this.resolveOtherUserName(
+      result.members,
+      userById,
+      creatorId,
+    );
+
     return {
       id: result.id,
       type: result.type as ConversationType,
-      name: result.name,
+      name: this.resolveConversationName(
+        result.type as ConversationType,
+        result.name,
+        otherUserName,
+      ),
       avatarUrl: this.resolveAvatarUrl(
         result.type as ConversationType,
         otherUserAvatarKey,
@@ -464,6 +545,22 @@ export class ChatServiceService {
       role: member.role as MemberRole,
       joinedAt: member.joinedAt,
       leftAt: member.leftAt ?? undefined,
+      avatarUrl: user?.avatarKey
+        ? this.storageService.getPublicUrl('avatars', user.avatarKey)
+        : null,
+    };
+  }
+
+  private buildParticipantResponse(
+    member: ConversationMember,
+    userById: Map<string, UserInternalResponse>,
+  ): MemberResponse {
+    const user = userById.get(member.userId);
+    return {
+      userId: member.userId,
+      username: user?.username ?? 'Unknown',
+      name: user?.name ?? 'Unknown',
+      lastReadAt: member.lastReadAt,
       avatarUrl: user?.avatarKey
         ? this.storageService.getPublicUrl('avatars', user.avatarKey)
         : null,
@@ -535,6 +632,18 @@ export class ChatServiceService {
       : null;
   }
 
+  private resolveOtherUserName(
+    members: Array<{ userId: string }>,
+    userById: Map<string, UserInternalResponse>,
+    currentUserId: string,
+  ): string | null {
+    const otherMember = members.find(
+      (member) => member.userId !== currentUserId,
+    );
+    if (!otherMember) return null;
+    return userById.get(otherMember.userId)?.name ?? 'Unknown';
+  }
+
   private resolveOtherUserAvatarKey(
     members: Array<{ userId: string }>,
     userById: Map<string, UserInternalResponse>,
@@ -546,5 +655,47 @@ export class ChatServiceService {
     return otherMember
       ? (userById.get(otherMember.userId)?.avatarKey ?? undefined)
       : undefined;
+  }
+
+  private async fetchConversationWithMembers(conversationId: string) {
+    const [conversation] = await this.databaseChatService.db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    const members = await this.databaseChatService.db
+      .select()
+      .from(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+
+    const userById = await this.resolveUserNames(
+      members.map((member) => member.userId),
+    );
+
+    return {
+      conversation,
+      members: members.map((member) =>
+        this.buildMemberResponse(member, userById),
+      ),
+    };
+  }
+
+  private resolveConversationName(
+    conversationType: ConversationType,
+    conversationName: string | null,
+    otherUserName: string | null,
+  ): string | null {
+    if (conversationType === ConversationType.PRIVATE) {
+      return otherUserName ?? 'Unknown';
+    }
+    return conversationName;
   }
 }
