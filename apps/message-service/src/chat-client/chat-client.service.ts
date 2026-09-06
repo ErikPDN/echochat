@@ -41,7 +41,7 @@ export class ChatClientService {
     return response.data;
   }
 
-  private handleError<T>(context: String): OperatorFunction<T, T> {
+  private handleError<T>(context: string): OperatorFunction<T, T> {
     return catchError((error: AxiosError) => {
       this.logger.error(`${context}: ${error.message}`, error.stack);
       throw new HttpException(

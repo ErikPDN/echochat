@@ -64,6 +64,7 @@ export class ChatServiceController {
     );
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('participants')
   getConversationsParticipants(
     @Query() query: GetSummaryQueryDto,

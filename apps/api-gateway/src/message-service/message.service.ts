@@ -1,4 +1,5 @@
 import {
+  ConversationSummaryResponse,
   ListMessageQueryDto,
   MessageResponse,
   NestErrorResponse,
@@ -72,7 +73,10 @@ export class MessageService {
     return response.data;
   }
 
-  async getSummary(conversationIds: string[], token: string): Promise<any> {
+  async getSummary(
+    conversationIds: string[],
+    token: string,
+  ): Promise<ConversationSummaryResponse[]> {
     const response = await firstValueFrom(
       this.httpService
         .get(`${this.messageServiceUrl}/conversations/messages/summary`, {

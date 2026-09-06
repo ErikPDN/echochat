@@ -1,9 +1,9 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class ListMessageQueryDto {
   @IsOptional()
-  @IsDate()
+  @IsDateString()
   before?: string;
 
   @IsOptional()

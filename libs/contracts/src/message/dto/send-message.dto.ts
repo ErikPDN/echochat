@@ -5,7 +5,6 @@ import {
   IsString,
   IsUUID,
   MaxLength,
-  Min,
   MinLength,
   ValidateIf,
 } from 'class-validator';

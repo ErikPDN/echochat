@@ -1,12 +1,7 @@
+import { LastMessageSummary } from './last-message-summary.interface';
+
 export interface ConversationSummaryResponse {
   conversationId: string;
-  lastMessage: {
-    messageId: string;
-    content?: string;
-    contentType: string;
-    senderId: string;
-    senderName: string;
-    createdAt: Date;
-  } | null;
+  lastMessage: LastMessageSummary | null;
   unreadCount: number;
 }
