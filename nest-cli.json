@@ -72,6 +72,15 @@
       "compilerOptions": {
         "tsConfigPath": "apps/message-service/tsconfig.app.json"
       }
+    },
+    "ws-gateway": {
+      "type": "application",
+      "root": "apps/ws-gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/ws-gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/ws-gateway/tsconfig.app.json"
+      }
     }
   }
 }

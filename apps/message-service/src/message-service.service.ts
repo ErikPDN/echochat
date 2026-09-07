@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import { MemberResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 import { ConversationSummaryResponse } from '@app/contracts/message/interfaces/conversation-summary-response.interface';
 import { QueryFilter } from 'mongoose';
+
 @Injectable()
 export class MessageServiceService {
   private readonly logger = new Logger(MessageServiceService.name);
@@ -50,7 +51,7 @@ export class MessageServiceService {
       .markConversationAsVisible(conversationId)
       .catch((err: Error) =>
         this.logger.warn(
-          `Falha ao marcar conversa ${conversationId} como visível: ${err.message}`,
+          `Failed to mark conversation ${conversationId} as visible: ${err.message}`,
         ),
       );
 
