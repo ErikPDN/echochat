@@ -6,7 +6,8 @@ import { firstValueFrom } from 'rxjs';
 @Injectable()
 export class MessageClientService {
   constructor(
-    @Inject('MESSAGE_CLIENT') private readonly messageServiceUrl: string,
+    @Inject('MESSAGE_SERVICE_API_URL')
+    private readonly messageServiceUrl: string,
     private readonly httpService: HttpService,
   ) {}
 
