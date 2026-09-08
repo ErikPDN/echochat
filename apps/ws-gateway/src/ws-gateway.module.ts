@@ -9,7 +9,7 @@ import { ChatGateway } from './chat.gateway';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env'],
+      envFilePath: ['.env', './apps/ws-gateway/.env'],
     }),
     TokenModule,
     MessageClientModule,

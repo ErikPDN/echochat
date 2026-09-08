@@ -71,6 +71,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { left: conversationId };
   }
 
+  @SubscribeMessage(WS_EVENTS.MESSAGE_SEND)
   async send(
     @ConnectedSocket() client: Socket,
     @MessageBody() body: WsSendMessageDto,
