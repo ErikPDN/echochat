@@ -26,9 +26,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatClient: ChatClientService,
   ) {}
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     const user = client.data.user as AuthenticatedUser;
-    client.join(`user:${user.userId}`);
+    await client.join(`user:${user.userId}`);
     this.logger.log(`${user.username} connected with (${client.id})`);
   }
 
@@ -78,18 +78,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { conversationId, ...dto } = body;
     const token = client.data.token as string;
+    const message = await this.messageClient.sendMessage(
+      conversationId,
+      dto,
+      token,
+    );
     try {
-      const message = await this.messageClient.sendMessage(
+      const [conv] = await this.chatClient.getConversationsParticipants([
         conversationId,
-        dto,
-        token,
-      );
+      ]);
 
-      this.server
-        .to(`conversation:${conversationId}`)
-        .emit(WS_EVENTS.MESSAGE_NEW, message);
+      const rooms = conv.members.map((member) => `user:${member.userId}`);
+      this.server.to(rooms).emit(WS_EVENTS.MESSAGE_NEW, message);
     } catch (err) {
-      throw new WsException((err as Error).message);
+      this.logger.error(
+        `Failed to emit message to conversation ${conversationId}: ${err.message}`,
+      );
     }
   }
 }
