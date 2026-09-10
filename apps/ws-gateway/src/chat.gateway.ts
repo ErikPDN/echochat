@@ -12,8 +12,9 @@ import {
 import { MessageClientService } from './message-client/message-client.service';
 import { Server, Socket } from 'socket.io';
 import { AuthenticatedUser } from '@app/common';
-import { WS_EVENTS, WsSendMessageDto } from '@app/contracts';
+import { MessageResponse, WS_EVENTS, WsSendMessageDto } from '@app/contracts';
 import { ChatClientService } from './chat-client/chat-client.service';
+import { AxiosError } from 'axios';
 
 @WebSocketGateway({ cors: { origin: process.env.FRONTEND_URL } })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -78,11 +79,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { conversationId, ...dto } = body;
     const token = client.data.token as string;
-    const message = await this.messageClient.sendMessage(
-      conversationId,
-      dto,
-      token,
-    );
+
+    let message: MessageResponse;
+
+    try {
+      message = await this.messageClient.sendMessage(
+        conversationId,
+        dto,
+        token,
+      );
+    } catch (err) {
+      const axErr = err as AxiosError<{ message?: string | string[] }>;
+      const data = axErr.response?.data?.message;
+      const detail = Array.isArray(data)
+        ? data.join(', ')
+        : (data ?? 'Failed to send message');
+      throw new WsException(detail);
+    }
+
     try {
       const [conv] = await this.chatClient.getConversationsParticipants([
         conversationId,
