@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Message, MessageDocument } from './database/schema';
@@ -12,8 +12,11 @@ import { randomUUID } from 'crypto';
 import { MemberResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
 import { ConversationSummaryResponse } from '@app/contracts/message/interfaces/conversation-summary-response.interface';
 import { QueryFilter } from 'mongoose';
+
 @Injectable()
 export class MessageServiceService {
+  private readonly logger = new Logger(MessageServiceService.name);
+
   constructor(
     @InjectModel('Message')
     private readonly messageModel: Model<MessageDocument>,
@@ -43,6 +46,14 @@ export class MessageServiceService {
       senderUsername: sender?.username,
       recipients: recipientIds.map((id) => ({ userId: id })),
     });
+
+    void this.conversationService
+      .markConversationAsVisible(conversationId)
+      .catch((err: Error) =>
+        this.logger.warn(
+          `Failed to mark conversation ${conversationId} as visible: ${err.message}`,
+        ),
+      );
 
     return this.toMessageResponse(newMessage, this.indexMembers(members));
   }

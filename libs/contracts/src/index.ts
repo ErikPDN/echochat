@@ -3,3 +3,4 @@ export * from './contracts.service';
 export * from './auth';
 export * from './chat';
 export * from './message';
+export * from './ws';

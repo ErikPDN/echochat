@@ -16,7 +16,7 @@ import {
   CreatePrivateConversationDto,
   MemberRole,
 } from '@app/contracts';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import {
   Conversation,
   ConversationMember,
@@ -50,6 +50,7 @@ export class ChatServiceService {
         and(
           eq(conversationMembers.userId, userId),
           isNull(conversationMembers.leftAt),
+          isNotNull(conversationMembers.visibleAt),
         ),
       );
 
@@ -143,6 +144,20 @@ export class ChatServiceService {
       await this.findExistingPrivateConversation(userId, memberId);
 
     if (existingPrivateConversation) {
+      await this.databaseChatService.db
+        .update(conversationMembers)
+        .set({ visibleAt: new Date() })
+        .where(
+          and(
+            eq(
+              conversationMembers.conversationId,
+              existingPrivateConversation.id,
+            ),
+            eq(conversationMembers.userId, userId),
+            isNull(conversationMembers.visibleAt),
+          ),
+        );
+
       return this.getConversationById(existingPrivateConversation.id, userId);
     }
 
@@ -418,6 +433,19 @@ export class ChatServiceService {
     }
   }
 
+  async markConversationAsVisible(conversationId: string): Promise<void> {
+    await this.databaseChatService.db
+      .update(conversationMembers)
+      .set({ visibleAt: new Date() })
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          isNull(conversationMembers.visibleAt),
+          isNull(conversationMembers.leftAt),
+        ),
+      );
+  }
+
   private async insertConversation(
     type: ConversationType,
     participantIds: string[],
@@ -462,11 +490,13 @@ export class ChatServiceService {
                 type === ConversationType.GROUP
                   ? MemberRole.ADMIN
                   : MemberRole.MEMBER,
+              visibleAt: new Date(),
             },
             ...participantIds.map((memberId) => ({
               conversationId: newConversation.id,
               userId: memberId,
               role: MemberRole.MEMBER,
+              visibleAt: type === ConversationType.GROUP ? new Date() : null,
             })),
           ])
           .returning();

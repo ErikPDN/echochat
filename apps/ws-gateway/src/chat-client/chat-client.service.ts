@@ -15,15 +15,12 @@ export class ChatClientService {
   private readonly logger = new Logger(ChatClientService.name);
 
   constructor(
-    @Inject('CHAT_SERVICE_API_URL')
-    private readonly chatServiceUrl: string,
+    @Inject('CHAT_SERVICE_API_URL') private readonly chatServiceUrl: string,
     private readonly httpService: HttpService,
   ) {}
 
-  async getConversationsParticipants(
-    conversationIds: string[],
-  ): Promise<ConversationParticipantResponse[]> {
-    const response = await firstValueFrom(
+  async getConversationsParticipants(conversationIds: string[]) {
+    const { data } = await firstValueFrom(
       this.httpService
         .get<ConversationParticipantResponse[]>(
           `${this.chatServiceUrl}/conversations/participants`,
@@ -37,25 +34,20 @@ export class ChatClientService {
           ),
         ),
     );
-
-    return response.data;
+    return data;
   }
 
-  async markConversationAsVisible(conversationId: string): Promise<void> {
-    const response = await firstValueFrom(
-      this.httpService
-        .post<void>(
-          `${this.chatServiceUrl}/conversations/${conversationId}/mark-visible`,
-        )
-        .pipe(
-          this.handleError('Error during mark conversation as visible request'),
-        ),
-    );
-
-    return response.data;
+  async isConversationMember(
+    conversationId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const [conversation] = await this.getConversationsParticipants([
+      conversationId,
+    ]);
+    return conversation?.members.some((member) => member.userId === userId);
   }
 
-  private handleError<T>(context: string): OperatorFunction<T, T> {
+  private handleError<T>(context: String): OperatorFunction<T, T> {
     return catchError((error: AxiosError) => {
       this.logger.error(`${context}: ${error.message}`, error.stack);
       throw new HttpException(
