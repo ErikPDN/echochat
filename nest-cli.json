@@ -34,7 +34,14 @@
       "entryFile": "main",
       "sourceRoot": "apps/chat-service/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/chat-service/tsconfig.app.json"
+        "tsConfigPath": "apps/chat-service/tsconfig.app.json",
+        "assets": [
+          {
+            "include": "../../../libs/contracts/src/**/*.proto",
+            "outDir": "dist/apps/chat-service",
+            "watchAssets": true
+          }
+        ]
       }
     },
     "common": {
@@ -79,7 +86,14 @@
       "entryFile": "main",
       "sourceRoot": "apps/ws-gateway/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/ws-gateway/tsconfig.app.json"
+        "tsConfigPath": "apps/ws-gateway/tsconfig.app.json",
+        "assets": [
+          {
+            "include": "../../../libs/contracts/src/**/*.proto",
+            "outDir": "dist/apps/ws-gateway",
+            "watchAssets": true
+          }
+        ]
       }
     }
   }

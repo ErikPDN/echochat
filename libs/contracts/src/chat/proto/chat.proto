@@ -1,0 +1,28 @@
+syntax = "proto3";
+package chat;
+
+service ChatService {
+    rpc GetConversationsParticipants(GetParticipantsRequest) returns (GetParticipantsResponse);
+}
+
+message GetParticipantsRequest {
+    repeated string conversationIds = 1;
+}
+
+message Member {
+    string userId = 1;
+    string username = 2;
+    string name = 3;
+    optional string avatarUrl = 4;
+    string lastReadAt = 5;
+}
+
+message ConversationParticipants {
+    string conversationId = 1;
+    string type = 2;
+    repeated Member members = 3;
+}
+
+message GetParticipantsResponse {
+    repeated ConversationParticipants conversations = 1;
+}
