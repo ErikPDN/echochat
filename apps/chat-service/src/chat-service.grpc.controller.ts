@@ -1,29 +1,30 @@
+import {
+  ChatServiceController,
+  ChatServiceControllerMethods,
+  GetParticipantsRequest,
+} from '@app/contracts';
 import { Controller } from '@nestjs/common';
 import { ChatServiceService } from './chat-service.service';
-import { GrpcMethod } from '@nestjs/microservices';
-import {
-  CHAT_GRPC_SERVICE,
-  GetConversationsParticipantsRequestDto,
-} from '@app/contracts';
 
-@Controller()
-export class ChatGrpcController {
-  constructor(private readonly chatService: ChatServiceService) {}
+@Controller('conversations')
+@ChatServiceControllerMethods()
+export class ChatServiceGrpcController implements ChatServiceController {
+  constructor(private readonly chatServiceService: ChatServiceService) {}
 
-  @GrpcMethod(CHAT_GRPC_SERVICE, 'GetConversationsParticipants')
-  async getConversationsParticipants(
-    request: GetConversationsParticipantsRequestDto,
-  ) {
-    const data = await this.chatService.getConversationsParticipants(
-      request.conversationIds,
-    );
+  async getConversationsParticipants(request: GetParticipantsRequest) {
+    const { conversationIds } = request;
+    const data =
+      await this.chatServiceService.getConversationsParticipants(
+        conversationIds,
+      );
 
     return {
-      conversations: data.map((c) => ({
-        ...c,
-        members: c.members.map((m) => ({
-          ...m,
-          lastReadAt: m.lastReadAt.toISOString(),
+      conversations: data.map((conversation) => ({
+        ...conversation,
+        members: conversation.members.map((member) => ({
+          ...member,
+          avatarUrl: member.avatarUrl ?? undefined,
+          lastReadAt: member.lastReadAt.toISOString(),
         })),
       })),
     };

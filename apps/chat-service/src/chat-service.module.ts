@@ -7,7 +7,7 @@ import { CommonModule } from '@app/common/common.module';
 import { DatabaseChatModule } from './database/database.module';
 import { AuthClientModule } from './auth-client/auth-client.module';
 import { StorageModule } from '@app/common/storage/storage.module';
-import { ChatGrpcController } from './chat-service.grpc.controller';
+import { ChatServiceGrpcController } from './chat-service.grpc.controller';
 
 @Module({
   imports: [
@@ -21,7 +21,7 @@ import { ChatGrpcController } from './chat-service.grpc.controller';
     AuthClientModule,
     StorageModule,
   ],
-  controllers: [ChatServiceController, ChatGrpcController],
+  controllers: [ChatServiceController, ChatServiceGrpcController],
   providers: [ChatServiceService],
 })
 export class ChatServiceModule {}

@@ -2,11 +2,11 @@ syntax = "proto3";
 package chat;
 
 service ChatService {
-    rpc GetConversationsParticipants(GetParticipantsRequest) returns (GetParticipantsResponse);
+  rpc GetConversationsParticipants (GetParticipantsRequest) returns (GetParticipantsResponse);
 }
 
 message GetParticipantsRequest {
-    repeated string conversationIds = 1;
+  repeated string conversationIds = 1;
 }
 
 message Member {
@@ -24,5 +24,5 @@ message ConversationParticipants {
 }
 
 message GetParticipantsResponse {
-    repeated ConversationParticipants conversations = 1;
+  repeated ConversationParticipants conversations = 1;
 }

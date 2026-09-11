@@ -1,40 +1,51 @@
-import { ConversationParticipantResponse } from '@app/contracts/chat/interfaces/conversation-participant-response.interface';
-import { HttpService } from '@nestjs/axios';
+import {
+  CHAT_PACKAGE_NAME,
+  CHAT_SERVICE_NAME,
+  ChatServiceClient,
+} from '@app/contracts';
 import {
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
-import { AxiosError } from 'axios';
-import { catchError, firstValueFrom, OperatorFunction } from 'rxjs';
+import type { ClientGrpc } from '@nestjs/microservices';
+import { ServiceError, status } from '@grpc/grpc-js';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
-export class ChatClientService {
+export class ChatClientService implements OnModuleInit {
   private readonly logger = new Logger(ChatClientService.name);
+  private chatService: ChatServiceClient;
 
-  constructor(
-    @Inject('CHAT_SERVICE_API_URL') private readonly chatServiceUrl: string,
-    private readonly httpService: HttpService,
-  ) {}
+  constructor(@Inject(CHAT_PACKAGE_NAME) private readonly client: ClientGrpc) {}
+
+  onModuleInit() {
+    this.chatService =
+      this.client.getService<ChatServiceClient>(CHAT_SERVICE_NAME);
+  }
 
   async getConversationsParticipants(conversationIds: string[]) {
-    const { data } = await firstValueFrom(
-      this.httpService
-        .get<ConversationParticipantResponse[]>(
-          `${this.chatServiceUrl}/conversations/participants`,
-          {
-            params: { conversationIds: conversationIds.join(',') },
-          },
-        )
-        .pipe(
-          this.handleError(
-            'Error during get conversations participants request',
-          ),
-        ),
-    );
-    return data;
+    try {
+      const { conversations } = await firstValueFrom(
+        this.chatService.getConversationsParticipants({ conversationIds }),
+      );
+      return conversations;
+    } catch (err) {
+      const error = err as ServiceError;
+      this.logger.error(
+        `Error fetching conversation participants: ${error.message}`,
+        error.stack,
+      );
+      throw new HttpException(
+        error.details ?? 'Internal Server Error',
+        error.code === status.NOT_FOUND
+          ? HttpStatus.NOT_FOUND
+          : HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   async isConversationMember(
@@ -45,15 +56,5 @@ export class ChatClientService {
       conversationId,
     ]);
     return conversation?.members.some((member) => member.userId === userId);
-  }
-
-  private handleError<T>(context: String): OperatorFunction<T, T> {
-    return catchError((error: AxiosError) => {
-      this.logger.error(`${context}: ${error.message}`, error.stack);
-      throw new HttpException(
-        error.response?.data ?? 'Internal Server Error',
-        error.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    });
   }
 }
