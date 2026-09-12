@@ -6,3 +6,4 @@ export * from './interfaces/conversation-summary-response.interface';
 export * from './dto/send-message.dto';
 export * from './dto/get-summary-query.dto';
 export * from './dto/list-message-query.dto';
+export * as MessageGrpc from './grpc/proto/message';

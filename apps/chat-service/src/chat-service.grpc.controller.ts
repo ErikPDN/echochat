@@ -6,7 +6,7 @@ import {
 import { Controller } from '@nestjs/common';
 import { ChatServiceService } from './chat-service.service';
 
-@Controller('conversations')
+@Controller()
 @ChatServiceControllerMethods()
 export class ChatServiceGrpcController implements ChatServiceController {
   constructor(private readonly chatServiceService: ChatServiceService) {}

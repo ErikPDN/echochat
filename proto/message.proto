@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package message;
+
+service MessageService {
+    rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+}
+
+enum ContentType {
+    TEXT = 0;
+    IMAGE = 1;
+    VIDEO = 2;
+    AUDIO = 3;
+}
+
+enum MessageStatus {
+    PENDING = 0;
+    SENT = 1;
+    DELIVERED = 2;
+    READ = 3;
+    FAILED = 4;
+}
+
+message SendMessageRequest {
+    string conversationId = 1;
+    optional string messageId = 2;
+    optional string content = 3;
+    ContentType contentType = 4;
+    repeated string fileIds = 5;
+}
+
+message Recipient {
+    string userId = 1;
+    MessageStatus status = 2;
+    optional string updatedAt = 3;
+}
+
+message SendMessageResponse {
+  string messageId = 1;
+  string conversationId = 2;
+  string senderId = 3;
+  string senderName = 4;
+  string senderUsername = 5;
+  optional string senderAvatarUrl = 6;
+  repeated Recipient recipients = 7;
+  optional string content = 8;
+  ContentType contentType = 9;
+  repeated string fileIds = 10;
+  string createdAt = 11;
+  string updatedAt = 12;
+}
+

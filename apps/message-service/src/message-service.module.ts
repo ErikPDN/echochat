@@ -6,7 +6,7 @@ import { MessageSchema } from './database/schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ChatClientModule } from './chat-client/chat-client.module';
 import { JwtAuthModule } from '@app/common/auth/jwt-auth.module';
-import { CommonModule } from '@app/common';
+import { CommonModule, TokenModule } from '@app/common';
 
 @Module({
   imports: [
@@ -15,6 +15,7 @@ import { CommonModule } from '@app/common';
     ChatClientModule,
     JwtAuthModule,
     CommonModule,
+    TokenModule,
   ],
   controllers: [MessageServiceController],
   providers: [MessageServiceService],
