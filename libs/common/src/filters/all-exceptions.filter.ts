@@ -5,6 +5,9 @@ import {
   HttpException,
   Logger,
 } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
+import { status as grpcStatus } from '@grpc/grpc-js';
+import { throwError } from 'rxjs';
 import { Request, Response } from 'express';
 
 const DEFAULT_ERROR_CODES: Record<number, string> = {
@@ -21,6 +24,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost) {
+    if (host.getType() === 'rpc') {
+      this.logger.error(
+        exception instanceof Error ? exception.message : String(exception),
+        exception instanceof Error ? exception.stack : undefined,
+      );
+
+      return throwError(() =>
+        exception instanceof RpcException
+          ? exception
+          : new RpcException({
+              code: grpcStatus.INTERNAL,
+              message: 'Internal server error',
+            }),
+      );
+    }
+
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();

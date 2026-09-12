@@ -6,7 +6,7 @@ import {
   MessageGrpcMapper,
 } from '@app/contracts/message';
 import { GrpcAuthGuard } from '@app/contracts/message/grpc/grpc-auth.guard';
-import { GrpcMethod } from '@nestjs/microservices';
+import { GrpcMethod, Payload } from '@nestjs/microservices';
 import type { AuthenticatedUser } from '@app/common';
 
 @Controller()
@@ -16,7 +16,7 @@ export class MessageServiceGrpcController {
   @UseGuards(GrpcAuthGuard)
   @GrpcMethod(MessageGrpc.MESSAGE_SERVICE_NAME, 'SendMessage')
   async sendMessage(
-    request: MessageGrpc.SendMessageRequest,
+    @Payload() request: MessageGrpc.SendMessageRequest,
     @GrpcUser() user?: AuthenticatedUser,
   ): Promise<MessageGrpc.SendMessageResponse> {
     const { userId } = user as AuthenticatedUser;

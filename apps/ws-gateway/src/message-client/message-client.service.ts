@@ -1,6 +1,7 @@
 import { ContentType, MessageGrpc, SendMessageDto } from '@app/contracts';
 import {
   MESSAGE_PACKAGE_NAME,
+  MESSAGE_SERVICE_NAME,
   MessageServiceClient,
 } from '@app/contracts/message/grpc/proto/message';
 import { MessageResponse } from '@app/contracts/message/interfaces/message-response.interface';
@@ -21,7 +22,7 @@ export class MessageClientService implements OnModuleInit {
 
   onModuleInit() {
     this.messageService =
-      this.client.getService<MessageServiceClient>(MESSAGE_PACKAGE_NAME);
+      this.client.getService<MessageServiceClient>(MESSAGE_SERVICE_NAME);
   }
 
   async sendMessage(
