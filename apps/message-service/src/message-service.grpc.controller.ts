@@ -1,82 +1,33 @@
-import {
-  MessageServiceController,
-  MessageServiceControllerMethods,
-  SendMessageRequest,
-} from '@app/contracts/message/grpc/proto/message';
-import { Controller } from '@nestjs/common';
+import { MessageServiceController } from '@app/contracts/message/grpc/proto/message';
+import { Controller, UseGuards } from '@nestjs/common';
 import { MessageServiceService } from './message-service.service';
-import { TokenService } from '@app/common';
-import { Metadata, status } from '@grpc/grpc-js';
-import { MessageGrpc, SendMessageDto } from '@app/contracts/message';
-import { RpcException } from '@nestjs/microservices';
+import {
+  GrpcUser,
+  MessageGrpc,
+  MessageGrpcMapper,
+} from '@app/contracts/message';
+import { GrpcAuthGuard } from '@app/contracts/message/grpc/grpc-auth.guard';
+import { GrpcMethod } from '@nestjs/microservices';
+import type { AuthenticatedUser } from '@app/common';
 
 @Controller()
-@MessageServiceControllerMethods()
 export class MessageServiceGrpcController implements MessageServiceController {
-  constructor(
-    private readonly messageService: MessageServiceService,
-    private readonly tokenService: TokenService,
-  ) {}
+  constructor(private readonly messageService: MessageServiceService) {}
 
+  @UseGuards(GrpcAuthGuard)
+  @GrpcMethod(MessageGrpc.MESSAGE_SERVICE_NAME, 'SendMessage')
   async sendMessage(
-    request: SendMessageRequest,
-    metadata?: Metadata,
+    request: MessageGrpc.SendMessageRequest,
+    @GrpcUser() user?: AuthenticatedUser,
   ): Promise<MessageGrpc.SendMessageResponse> {
-    const senderId = this.authenticate(metadata);
-
-    const dto: SendMessageDto = {
-      messageId: request.messageId,
-      content: request.content,
-      contentType: request.contentType,
-      fileIds: request.fileIds,
-    };
-
-    try {
-      const message = await this.messageService.sendMessage();
-      return toGrpcResponse();
-    } catch (err) {
-      throw new RpcException({
-        code: status.PERMISSION_DENIED,
-        message: (err as Error).message,
-      });
-    }
+    const { userId } = user as AuthenticatedUser;
+    const { conversationId } = request;
+    const dto = MessageGrpcMapper.toDto(request);
+    const message = await this.messageService.sendMessage(
+      conversationId,
+      dto,
+      userId,
+    );
+    return MessageGrpcMapper.toResponse(message);
   }
-
-  private authenticate(metadata?: Metadata): string {
-    const raw = metadata?.get('authorization')?.[0]?.toString();
-    if (!raw) {
-      throw new RpcException({
-        code: status.UNAUTHENTICATED,
-        message: 'missing token',
-      });
-    }
-    const token = raw.startsWith('Bearer ') ? raw.slice(7) : raw;
-    return this.tokenService.verifyAccessToken(token).userId;
-  }
-}
-
-function fromGrpcContentType(ct: MessageGrpc.ContentType): DomainContentType {
-  return MessageGrpc.ContentType[ct] as DomainContentType;
-}
-function toGrpcContentType(ct: DomainContentType): MessageGrpc.ContentType {
-  return MessageGrpc.ContentType[ct as keyof typeof MessageGrpc.ContentType];
-}
-function toGrpcStatus(s: DomainMessageStatus): MessageGrpc.MessageStatus {
-  return MessageGrpc.MessageStatus[s as keyof typeof MessageGrpc.MessageStatus];
-}
-
-function toGrpcResponse(
-  message: Awaited<ReturnType<MessageServiceService['sendMessage']>>,
-): MessageGrpc.SendMessageResponse {
-  return {
-    ...message,
-    contentType: toGrpcContentType(message.contentType),
-    createdAt: message.createdAt.toISOString(),
-    updatedAt: message.updatedAt.toISOString(),
-    recipients: message.recipients.map((r) => ({
-      userId: r.userId,
-      status: toGrpcStatus(r.status),
-      updatedAt: r.updatedAt?.toISOString(),
-    })),
-  };
 }
