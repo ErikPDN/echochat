@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { MessageServiceController } from './message-service.controller';
+import { MessageServiceGrpcController } from './message-service.grpc.controller';
 import { MessageServiceService } from './message-service.service';
 import { DatabaseMessageModule } from './database/database.module';
 import { MessageSchema } from './database/schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ChatClientModule } from './chat-client/chat-client.module';
 import { JwtAuthModule } from '@app/common/auth/jwt-auth.module';
-import { CommonModule, TokenModule } from '@app/common';
+import { CommonModule } from '@app/common';
 import { GrpcAuthModule } from '@app/contracts';
 
 @Module({
@@ -16,10 +17,9 @@ import { GrpcAuthModule } from '@app/contracts';
     ChatClientModule,
     JwtAuthModule,
     CommonModule,
-    TokenModule,
     GrpcAuthModule,
   ],
-  controllers: [MessageServiceController],
+  controllers: [MessageServiceController, MessageServiceGrpcController],
   providers: [MessageServiceService],
 })
 export class MessageServiceModule {}

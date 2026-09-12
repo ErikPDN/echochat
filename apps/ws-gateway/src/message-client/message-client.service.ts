@@ -1,11 +1,13 @@
-import { SendMessageDto } from '@app/contracts';
+import { ContentType, MessageGrpc, SendMessageDto } from '@app/contracts';
 import {
   MESSAGE_PACKAGE_NAME,
   MessageServiceClient,
 } from '@app/contracts/message/grpc/proto/message';
 import { MessageResponse } from '@app/contracts/message/interfaces/message-response.interface';
+import { MessageStatus } from '@app/contracts/message/enums/message-status.enum';
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
+import { Metadata } from '@grpc/grpc-js';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable()
@@ -29,14 +31,20 @@ export class MessageClientService implements OnModuleInit {
   ): Promise<MessageResponse> {
     try {
       const { messageId, content, contentType, fileIds } = message;
+      const metadata = new Metadata();
+      metadata.set('authorization', `Bearer ${token}`);
+
       const sentMessage = await firstValueFrom(
-        this.messageService.sendMessage({
-          conversationId,
-          messageId: messageId ?? undefined,
-          content: content ?? undefined,
-          contentType: contentType as unknown as number,
-          fileIds: fileIds ?? [],
-        }),
+        this.messageService.sendMessage(
+          {
+            conversationId,
+            messageId: messageId ?? undefined,
+            content: content ?? undefined,
+            contentType: MessageGrpc.ContentType[contentType],
+            fileIds: fileIds ?? [],
+          },
+          metadata,
+        ),
       );
       return {
         messageId: sentMessage.messageId,
@@ -47,15 +55,15 @@ export class MessageClientService implements OnModuleInit {
         senderAvatarUrl: sentMessage.senderAvatarUrl ?? undefined,
         recipients: sentMessage.recipients.map((recipient) => ({
           userId: recipient.userId,
-          status:
-            recipient.status as MessageResponse['recipients'][number]['status'],
+          status: MessageGrpc.MessageStatus[recipient.status] as MessageStatus,
           updatedAt: recipient.updatedAt
             ? new Date(recipient.updatedAt)
             : undefined,
         })),
         content: sentMessage.content ?? undefined,
-        contentType:
-          sentMessage.contentType as unknown as MessageResponse['contentType'],
+        contentType: MessageGrpc.ContentType[
+          sentMessage.contentType
+        ] as ContentType,
         fileIds: sentMessage.fileIds ?? [],
         createdAt: sentMessage.createdAt
           ? new Date(sentMessage.createdAt)

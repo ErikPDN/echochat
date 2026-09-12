@@ -5,6 +5,7 @@
 // source: proto/message.proto
 
 /* eslint-disable */
+import type { Metadata } from '@grpc/grpc-js';
 import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
 import { Observable } from 'rxjs';
 
@@ -59,12 +60,16 @@ export interface SendMessageResponse {
 export const MESSAGE_PACKAGE_NAME = 'message';
 
 export interface MessageServiceClient {
-  sendMessage(request: SendMessageRequest): Observable<SendMessageResponse>;
+  sendMessage(
+    request: SendMessageRequest,
+    metadata?: Metadata,
+  ): Observable<SendMessageResponse>;
 }
 
 export interface MessageServiceController {
   sendMessage(
     request: SendMessageRequest,
+    metadata?: Metadata,
   ):
     | Promise<SendMessageResponse>
     | Observable<SendMessageResponse>

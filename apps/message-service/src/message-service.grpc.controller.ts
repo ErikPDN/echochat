@@ -1,4 +1,3 @@
-import { MessageServiceController } from '@app/contracts/message/grpc/proto/message';
 import { Controller, UseGuards } from '@nestjs/common';
 import { MessageServiceService } from './message-service.service';
 import {
@@ -11,7 +10,7 @@ import { GrpcMethod } from '@nestjs/microservices';
 import type { AuthenticatedUser } from '@app/common';
 
 @Controller()
-export class MessageServiceGrpcController implements MessageServiceController {
+export class MessageServiceGrpcController {
   constructor(private readonly messageService: MessageServiceService) {}
 
   @UseGuards(GrpcAuthGuard)
